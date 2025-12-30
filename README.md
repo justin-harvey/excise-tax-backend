@@ -6,415 +6,188 @@
 [![XRPL](https://img.shields.io/badge/XRPL-Blockchain-green)](https://xrpl.org/)
 [![Security](https://img.shields.io/badge/Security-Audited-green)](SECURITY_FIXES_APPLIED.md)
 
-> **Revolutionary blockchain-powered excise tax collection platform delivering 99.9% cost reduction and instant settlement for government agencies.**
+> **Blockchain-enabled excise tax collection platform designed to dramatically reduce processing costs and enable near-instant settlement for government agencies.**
 
 ---
 
-## 🎯 **Overview**
+## Overview
 
 The Excise Tax Payment Platform is a complete, full-stack system for government excise tax collection, featuring:
 
-- **Frontend Portal** - Production web application for manufacturers, distributors, and government administrators
-  - Live at: [Excise Tax Payment Platform](https://github.com/G00DTECH/Excise-Tax-Payment-Platform)
-  - Company registration and secure authentication
-  - Payment processing (ACH, Credit Card, Wire Transfer)
-  - Manufacturing report submissions (13 LCC report types)
-  - Admin review and approval workflows
-  - Payment history and tax calculators
+* **Frontend Portal** – Production web application for manufacturers, distributors, and government administrators
 
-- **Backend Infrastructure** (This Repository) - Production-ready, cloud-native microservices system integrating **XRP Ledger (XRPL) blockchain technology** to reduce payment processing costs by 99.9% while providing 3-5 second settlement times (vs 30+ days for traditional methods)
+  * Live at: [https://github.com/G00DTECH/Excise-Tax-Payment-Platform](https://github.com/G00DTECH/Excise-Tax-Payment-Platform)
+  * Company registration and secure authentication
+  * Payment processing (ACH, Credit Card, Wire Transfer)
+  * Manufacturing report submissions (13 LCC report types)
+  * Administrative review and approval workflows
+  * Payment history and tax calculators
 
-### **Key Features**
-
-- 🚀 **XRPL Blockchain Integration** - Near-zero cost payments with instant settlement
-- 🏛️ **Government-Grade Security** - JWT authentication, RBAC, audit trails
-- ⚡ **High Performance** - Microservices architecture handling 1,000+ TPS
-- 📊 **Real-Time Monitoring** - Prometheus metrics & Grafana dashboards
-- 🔄 **Multi-Source Price Oracle** - Aggregated XRP/USD rates from 4 exchanges
-- 📱 **Mobile-Ready** - QR code payments for mobile wallets
-- 🌍 **White-Label Ready** - Customizable for any state/jurisdiction
-- 📈 **Enterprise Scalability** - Kubernetes-ready with horizontal scaling
+* **Backend Infrastructure (this repository)** – A production-ready, cloud-native microservices system integrating XRP Ledger (XRPL) settlement to materially reduce payment processing costs while providing 3–5 second settlement times versus traditional monthly or multi-week batch processes
 
 ---
 
-## 💰 **Business Impact**
+## Alignment with the Federal Digital Payments Executive Order
 
-| Metric | Traditional | XRPL Platform | Improvement |
-|--------|-------------|---------------|-------------|
-| **Processing Cost** | $3-4 Billion/year | ~$4 Million/year | **99.9% reduction** |
-| **Settlement Time** | 30+ days | 3-5 seconds | **99.9% faster** |
-| **Transaction Fee** | $15-$280 | $0.0003 | **99.999% lower** |
-| **Market Size** | $250-300B annual US excise tax volume | - | - |
+This platform is designed to directly support and operationalize recent federal executive guidance on digital payment modernization, including mandates to:
 
-**Projected Annual Savings:** $3.996 Billion for 1,000 daily transactions
+* Expand acceptance of digital wallets and modern payment methods
+* Reduce reliance on paper checks and legacy batch ACH processes
+* Improve settlement speed, transparency, and reconciliation
+* Increase resilience, auditability, and security of government payment systems
 
----
+### Patent Utility in This Context
 
-## 🏛️ **System Components**
+The underlying patent associated with this platform covers a set of optimizations for government payment processing that enable:
 
-This repository contains the **backend infrastructure** that powers the complete Excise Tax Payment Platform:
+* Real-time or near-real-time settlement without changing existing taxpayer-facing workflows
+* Cost-competitive processing by aggregating transaction volume, optimizing internal payment flows, and accessing institutional pricing
+* Compatibility with digital assets, tokenized dollars, and blockchain settlement layers while preserving compliance with existing treasury and accounting requirements
+* Incremental modernization, allowing agencies to meet executive order requirements without full system replacement
 
-### **Frontend (Separate Repository)**
-- **Repository:** [G00DTECH/Excise-Tax-Payment-Platform](https://github.com/G00DTECH/Excise-Tax-Payment-Platform)
-- **Technology:** HTML5, JavaScript, responsive web design
-- **Features:**
-  - Company portal for manufacturers and distributors
-  - Admin portal for LCC staff review and approval
-  - Payment processing interface (ACH, Credit Card, Wire Transfer)
-  - Manufacturing report submission (Beer, Wine, Spirits - 13 report types)
-  - Tax calculator and payment history
-  - Real-time status tracking and notifications
-
-### **Backend (This Repository)**
-- **Repository:** This repository
-- **Technology:** Go microservices, PostgreSQL, Redis, RabbitMQ, XRPL
-- **Features:**
-  - RESTful API Gateway for frontend integration
-  - XRPL blockchain payment processing (99.9% cost reduction)
-  - Multi-source price oracle (XRP/USD aggregation)
-  - JWT authentication and RBAC
-  - Tax calculation and validation services
-  - Real-time reporting and analytics
-  - Email, SMS, and webhook notifications
-
-### **How They Work Together**
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                    Frontend Portal                       │
-│           (User Interface - Separate Repo)               │
-│  • Company Registration  • Payment Forms                 │
-│  • Report Submission     • Admin Review                  │
-└──────────────────────────┬──────────────────────────────┘
-                           │ REST API Calls
-                           │ (JSON over HTTPS)
-                           ▼
-┌─────────────────────────────────────────────────────────┐
-│              Backend API Gateway (This Repo)             │
-│          Authentication • Rate Limiting • CORS           │
-└──────────────────────────┬──────────────────────────────┘
-                           │
-        ┌──────────────────┼──────────────────┐
-        ▼                  ▼                  ▼
-   Payment Service    Tax Service      Reporting Service
-   (XRPL Blockchain)  (Calculation)    (Analytics)
-```
+In practical terms, the patent allows government agencies and payment partners to layer modern digital settlement rails (including blockchain and regulated digital dollars) beneath existing portals and accounting systems, accelerating compliance with federal digital payments policy while minimizing operational disruption.
 
 ---
 
-## 🏗️ **Backend Architecture**
+## Key Features
 
-### **Microservices Stack**
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Load Balancer (Nginx)                     │
-│                     SSL/TLS Termination                      │
-└────────────────────────────┬────────────────────────────────┘
-                             │
-                             ▼
-┌─────────────────────────────────────────────────────────────┐
-│              API Gateway (Port 8080)                         │
-│  Authentication • Rate Limiting • CORS • Routing             │
-└────────────────────────────┬────────────────────────────────┘
-                             │
-        ┌────────────────────┼────────────────────┐
-        │                    │                    │
-        ▼                    ▼                    ▼
-┌──────────────┐    ┌───────────────┐    ┌──────────────┐
-│   Payment    │    │      Tax      │    │  Reporting   │
-│   Service    │    │   Service     │    │   Service    │
-│  Port 8081   │    │  Port 8082    │    │  Port 8083   │
-└──────┬───────┘    └───────┬───────┘    └──────┬───────┘
-       │                    │                    │
-       └────────────────────┼────────────────────┘
-                            │
-                            ▼
-        ┌───────────────────────────────────┐
-        │  PostgreSQL • Redis • RabbitMQ    │
-        │  Prometheus • Grafana • XRPL      │
-        └───────────────────────────────────┘
-```
-
-### **Technology Stack**
-
-**Backend:**
-- **Language:** Go 1.21+ (Golang)
-- **Frameworks:** Gin (HTTP), GORM (ORM)
-- **Database:** PostgreSQL 15
-- **Cache:** Redis 7
-- **Message Queue:** RabbitMQ 3.12
-- **Blockchain:** XRP Ledger (XRPL)
-
-**Infrastructure:**
-- **Containerization:** Docker & Docker Compose
-- **Orchestration:** Kubernetes (ready)
-- **Monitoring:** Prometheus + Grafana
-- **CI/CD:** GitHub Actions
-- **Cloud:** Multi-cloud ready (AWS, GCP, Azure)
+* XRPL-based settlement for low-cost, near-instant payments
+* Government-grade security including JWT authentication, role-based access control, and full audit trails
+* High-throughput microservices architecture capable of handling 1,000+ transactions per second
+* Real-time monitoring via Prometheus and Grafana
+* Multi-source XRP/USD price oracle with aggregated exchange data
+* Mobile-friendly payment flows including QR-based wallet payments
+* White-label architecture suitable for reuse across states and jurisdictions
+* Enterprise-scale deployment with Kubernetes readiness
 
 ---
 
-## 🚀 **Quick Start**
+## Business Impact
 
-### **Prerequisites**
+| Metric             | Traditional Systems                   | Platform Architecture | Improvement                |
+| ------------------ | ------------------------------------- | --------------------- | -------------------------- |
+| Processing Cost    | $3–4B annually                        | ~$4M annually         | ~99.9% reduction           |
+| Settlement Time    | 30+ days                              | 3–5 seconds           | Orders of magnitude faster |
+| Transaction Fee    | $15–$280                              | ~$0.0003              | Materially lower           |
+| Addressable Market | $250–300B annual US excise tax volume | —                     | —                          |
 
-- [Docker Desktop](https://www.docker.com/products/docker-desktop) 24.0+
-- [Go](https://golang.org/dl/) 1.21+
-- [golang-migrate](https://github.com/golang-migrate/migrate) (optional)
-- 8 GB RAM minimum (16 GB recommended)
+Projected annual savings scale with transaction volume and jurisdiction adoption.
 
-### **🔒 Security Setup (REQUIRED FIRST)**
+---
 
-**IMPORTANT:** Before starting Docker services, you must configure secure passwords for all infrastructure components.
+## System Components
 
-#### **Step 1: Create Environment File**
+This repository contains the backend infrastructure that powers the Excise Tax Payment Platform.
+
+### Frontend (Separate Repository)
+
+* Repository: [https://github.com/G00DTECH/Excise-Tax-Payment-Platform](https://github.com/G00DTECH/Excise-Tax-Payment-Platform)
+* Technology: HTML5, JavaScript, responsive web design
+* Features include taxpayer portals, administrative review tools, payment interfaces, report submission, calculators, and status tracking
+
+### Backend (This Repository)
+
+* Technology: Go microservices, PostgreSQL, Redis, RabbitMQ, XRPL
+* Features:
+
+  * RESTful API gateway for frontend integration
+  * Blockchain-backed payment settlement
+  * Authentication and authorization services
+  * Tax calculation and validation engines
+  * Reporting, analytics, and notification services
+
+### High-Level Flow
+
+Frontend clients communicate with the backend via JSON-based REST APIs over HTTPS. The API gateway routes requests to dedicated payment, tax, and reporting services, which interact with databases, message queues, monitoring tools, and the XRPL settlement layer.
+
+---
+
+## Backend Architecture
+
+The backend follows a microservices architecture with an API gateway, dedicated domain services, and shared infrastructure services. It is containerized using Docker and designed for horizontal scaling via Kubernetes.
+
+### Technology Stack
+
+**Backend**
+
+* Go 1.21+
+* Gin (HTTP framework)
+* GORM (ORM)
+* PostgreSQL 15
+* Redis 7
+* RabbitMQ 3.12
+* XRP Ledger (XRPL)
+
+**Infrastructure**
+
+* Docker and Docker Compose
+* Kubernetes (deployment-ready)
+* Prometheus and Grafana for monitoring
+* GitHub Actions for CI/CD
+* Multi-cloud compatibility (AWS, GCP, Azure)
+
+---
+
+## Quick Start
+
+### Prerequisites
+
+* Docker Desktop 24.0+
+* Go 1.21+
+* 8 GB RAM minimum (16 GB recommended)
+
+### Security Setup (Required)
+
+Before starting services, configure strong passwords for all infrastructure components.
+
+1. Copy the environment template:
+
+   ```bash
+   cd infrastructure/docker
+   cp .env.docker.example .env.docker
+   ```
+
+2. Generate four strong passwords and update the following values:
+
+   * POSTGRES_PASSWORD
+   * REDIS_PASSWORD
+   * RABBITMQ_PASSWORD
+   * GRAFANA_ADMIN_PASSWORD
+
+Do not commit `.env.docker` to version control.
+
+### Installation
 
 ```bash
-cd infrastructure/docker
-cp .env.docker.example .env.docker
-```
-
-#### **Step 2: Generate Strong Passwords**
-
-Generate 4 strong random passwords (one for each service):
-
-**PowerShell (Windows):**
-```powershell
-Add-Type -AssemblyName System.Web
-[System.Web.Security.Membership]::GeneratePassword(32,8)
-```
-
-**Bash/Terminal (Linux/Mac):**
-```bash
-openssl rand -base64 32
-```
-
-**Or use:** https://www.random.org/passwords/ (Length: 32, Quantity: 4)
-
-#### **Step 3: Update .env.docker**
-
-Edit `infrastructure/docker/.env.docker` and replace all `CHANGE_ME_STRONG_PASSWORD_MIN_16_CHARS` placeholders:
-
-```bash
-POSTGRES_PASSWORD=<your-generated-password-1>
-REDIS_PASSWORD=<your-generated-password-2>
-RABBITMQ_PASSWORD=<your-generated-password-3>
-GRAFANA_ADMIN_PASSWORD=<your-generated-password-4>
-```
-
-**⚠️ Security Notes:**
-- NEVER commit `.env.docker` to version control (it's in .gitignore)
-- Use different passwords for each service
-- Store passwords securely (password manager recommended)
-- Minimum 16 characters per password
-
-### **Installation**
-
-```bash
-# 1. Clone the repository
+# Clone repository
 git clone https://github.com/YOUR_USERNAME/excise-tax-portal.git
 cd excise-tax-portal
 
-# 2. Configure security (see Security Setup above)
-cd infrastructure/docker
-cp .env.docker.example .env.docker
-# Edit .env.docker with your strong passwords
-
-# 3. Start Docker infrastructure
+# Start infrastructure
 docker compose up -d
 
-# 4. Run database migrations
-cd ../../backend
-# Update connection string with your PostgreSQL password from .env.docker
-migrate -path migrations -database "postgresql://postgres:YOUR_PASSWORD@localhost:5432/excise_tax_db?sslmode=disable" up
-
-# 5. Install Go dependencies
-go mod download
-
-# 6. Build services
+# Run migrations and services
 make build
-
-# 7. Run services
 make run-all
 ```
 
-### **Automated Setup (Windows)**
+---
 
-```powershell
-# FIRST: Configure security (see Security Setup above)
-cd infrastructure\docker
-copy .env.docker.example .env.docker
-# Edit .env.docker with your strong passwords
+## Documentation
 
-# Start all infrastructure
-.\start-services.ps1
+* Security fixes and audit notes: SECURITY_FIXES_APPLIED.md
+* Startup and deployment guides
+* Backend architecture and file structure documentation
+* REST API specifications
 
-# Create database
-.\migrate-database.ps1
-
-# Test everything
-.\test-all-services.ps1
-```
-
-### **Verify Installation**
-
-```bash
-# Check health endpoints
-curl http://localhost:8080/health        # API Gateway
-curl http://localhost:8081/health        # Payment Service
-curl http://localhost:8085/health        # Auth Service
-
-# Access web interfaces (use your configured passwords)
-open http://localhost:15672              # RabbitMQ (admin/<your-rabbitmq-password>)
-open http://localhost:9090               # Prometheus
-open http://localhost:3001               # Grafana (admin/<your-grafana-password>)
-```
+Frontend documentation is maintained in the separate frontend repository.
 
 ---
 
-## 📚 **Documentation**
+## License
 
-### **Backend Documentation (This Repository)**
-
-| Document | Description |
-|----------|-------------|
-| [**Security Fixes Applied**](SECURITY_FIXES_APPLIED.md) | Security audit results & fixes |
-| [**Startup Guide**](STARTUP_GUIDE.md) | Complete backend setup instructions |
-| [**Backend Architecture**](backend/README.md) | Microservices design & structure |
-| [**File Structure**](FILE_STRUCTURE.md) | Complete repository organization |
-| [**API Documentation**](backend/docs/API.md) | RESTful API specifications |
-| [**Docker Guide**](infrastructure/docker/README.md) | Container setup & management |
-| [**Deployment Guide**](DEPLOYMENT_GUIDE.md) | Production deployment |
-| [**Contributing**](CONTRIBUTING.md) | How to contribute |
-
-### **Frontend Documentation**
-
-| Resource | Description |
-|----------|-------------|
-| [**Frontend Repository**](https://github.com/G00DTECH/Excise-Tax-Payment-Platform) | Complete frontend source code |
-| [**Frontend README**](README_FRONTEND_LEGACY.md) | Original frontend documentation |
+This project is licensed under the MIT License. See the LICENSE file for details.
 
 ---
 
-## 🔧 **Development**
-
-### **Backend Repository Structure**
-
-```
-excise-tax-portal/              # This repository (backend)
-├── backend/                    # Go microservices
-│   ├── cmd/                   # Service entry points (6 services)
-│   ├── internal/              # Private application code
-│   ├── pkg/                   # Shared libraries
-│   ├── migrations/            # Database migrations
-│   └── configs/               # Configuration files
-├── infrastructure/            # Docker & deployment configs
-│   └── docker/               # Docker Compose setup
-├── .github/                   # CI/CD workflows
-└── docs/                      # Backend documentation
-
-Note: Frontend is in separate repository:
-https://github.com/G00DTECH/Excise-Tax-Payment-Platform
-```
-
-### **Key Commands**
-
-```bash
-# Build all services
-make build
-
-# Run tests
-make test
-
-# Run linter
-make lint
-
-# View logs
-docker compose logs -f
-
-# Stop all services
-docker compose down
-```
-
----
-
-## 🚀 **Deployment**
-
-### **Complete System Deployment**
-
-To deploy the full Excise Tax Payment Platform, you need both repositories:
-
-1. **Deploy Backend** (This Repository)
-   ```bash
-   # Clone backend repository
-   git clone https://github.com/YOUR_USERNAME/excise-tax-portal.git
-   cd excise-tax-portal
-
-   # Start infrastructure
-   cd infrastructure/docker
-   docker compose up -d
-
-   # Run migrations
-   cd ../../backend
-   make migrate-up
-
-   # Build and start services
-   make build
-   make run-all
-   ```
-
-2. **Deploy Frontend** (Separate Repository)
-   ```bash
-   # Clone frontend repository
-   git clone https://github.com/G00DTECH/Excise-Tax-Payment-Platform.git
-   cd Excise-Tax-Payment-Platform
-
-   # Configure API endpoint
-   # Update JavaScript files to point to backend API:
-   # API_BASE_URL = "http://your-backend-domain:8080/api/v1"
-
-   # Deploy to web server (Nginx, Apache, etc.)
-   # Or serve with simple HTTP server for testing:
-   python -m http.server 8000
-   ```
-
-3. **Configure Integration**
-   - Update frontend API endpoint to point to backend gateway
-   - Configure CORS in backend to allow frontend origin
-   - Set up SSL/TLS certificates for both services
-   - Configure OAuth callback URLs
-
-### **Production Deployment**
-
-**Backend:**
-- Kubernetes deployment (manifests included)
-- Multi-cloud ready (AWS EKS, GCP GKE, Azure AKS)
-- Horizontal pod autoscaling
-- PostgreSQL read replicas
-- Redis cluster mode
-- Load balancer with SSL termination
-
-**Frontend:**
-- Static site hosting (S3 + CloudFront, Netlify, Vercel)
-- CDN distribution for global performance
-- Environment-specific API endpoints
-- HTTPS with TLS 1.3
-
-**Integration:**
-- API Gateway handles CORS and authentication
-- Frontend communicates via REST API
-- JWT tokens for session management
-- WebSocket for real-time notifications (optional)
-
----
-
-## 📜 **License**
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-**Built with ❤️ for Government Innovation**
-
-**Revolutionizing public sector payments with blockchain technology.**
+Built to support modern, secure, and policy-aligned government payment infrastructure.
