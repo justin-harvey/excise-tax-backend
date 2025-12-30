@@ -5,11 +5,11 @@
 [![Docker](https://img.shields.io/badge/Docker-24.0%2B-blue)](https://www.docker.com/)
 [![XRPL](https://img.shields.io/badge/XRPL-Blockchain-green)](https://xrpl.org/)
 
-> **Revolutionary blockchain-powered excise tax collection platform delivering 99.9% cost reduction and instant settlement for government agencies.**
+> Blockchain-powered excise tax collection platform delivering 99.9% cost reduction and instant settlement for government agencies.**
 
 ---
 
-## 🎯 **Overview**
+##   **Overview**
 
 The Excise Tax Payment Platform is a complete, full-stack system for government excise tax collection, featuring:
 
@@ -25,18 +25,18 @@ The Excise Tax Payment Platform is a complete, full-stack system for government 
 
 ### **Key Features**
 
-- 🚀 **XRPL Blockchain Integration** - Near-zero cost payments with instant settlement
-- 🏛️ **Government-Grade Security** - JWT authentication, RBAC, audit trails
-- ⚡ **High Performance** - Microservices architecture handling 1,000+ TPS
-- 📊 **Real-Time Monitoring** - Prometheus metrics & Grafana dashboards
-- 🔄 **Multi-Source Price Oracle** - Aggregated XRP/USD rates from 4 exchanges
-- 📱 **Mobile-Ready** - QR code payments for mobile wallets
-- 🌍 **White-Label Ready** - Customizable for any state/jurisdiction
-- 📈 **Enterprise Scalability** - Kubernetes-ready with horizontal scaling
+- **XRPL Blockchain Integration** - Near-zero cost payments with instant settlement
+- **Government-Grade Security** - JWT authentication, RBAC, audit trails
+- **High Performance** - Microservices architecture handling 1,000+ TPS
+- **Real-Time Monitoring** - Prometheus metrics & Grafana dashboards
+- **Multi-Source Price Oracle** - Aggregated XRP/USD rates from 4 exchanges
+- **Mobile-Ready** - QR code payments for mobile wallets
+- **White-Label Ready** - Customizable for any state/jurisdiction
+- **Enterprise Scalability** - Kubernetes-ready with horizontal scaling
 
 ---
 
-## 💰 **Business Impact**
+## **Business Impact**
 
 | Metric | Traditional | XRPL Platform | Improvement |
 |--------|-------------|---------------|-------------|
@@ -80,17 +80,17 @@ This repository contains the **backend infrastructure** that powers the complete
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    Frontend Portal                       │
-│           (User Interface - Separate Repo)               │
-│  • Company Registration  • Payment Forms                 │
-│  • Report Submission     • Admin Review                  │
+│                    Frontend Portal                      │
+│           (User Interface - Separate Repo)              │
+│  • Company Registration  • Payment Forms                │
+│  • Report Submission     • Admin Review                 │
 └──────────────────────────┬──────────────────────────────┘
                            │ REST API Calls
                            │ (JSON over HTTPS)
                            ▼
 ┌─────────────────────────────────────────────────────────┐
-│              Backend API Gateway (This Repo)             │
-│          Authentication • Rate Limiting • CORS           │
+│              Backend API Gateway (This Repo)            │
+│          Authentication • Rate Limiting • CORS          │
 └──────────────────────────┬──────────────────────────────┘
                            │
         ┌──────────────────┼──────────────────┐
@@ -101,20 +101,20 @@ This repository contains the **backend infrastructure** that powers the complete
 
 ---
 
-## 🏗️ **Backend Architecture**
+## **Backend Architecture**
 
 ### **Microservices Stack**
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Load Balancer (Nginx)                     │
-│                     SSL/TLS Termination                      │
+│                    Load Balancer (Nginx)                    │
+│                     SSL/TLS Termination                     │
 └────────────────────────────┬────────────────────────────────┘
                              │
                              ▼
 ┌─────────────────────────────────────────────────────────────┐
-│              API Gateway (Port 8080)                         │
-│  Authentication • Rate Limiting • CORS • Routing             │
+│              API Gateway (Port 8080)                        │
+│  Authentication • Rate Limiting • CORS • Routing            │
 └────────────────────────────┬────────────────────────────────┘
                              │
         ┌────────────────────┼────────────────────┐
@@ -154,7 +154,7 @@ This repository contains the **backend infrastructure** that powers the complete
 
 ---
 
-## 🚀 **Quick Start**
+## **Quick Start**
 
 ### **Prerequisites**
 
@@ -217,7 +217,7 @@ open http://localhost:3001               # Grafana (admin/admin)
 
 ---
 
-## 📚 **Documentation**
+## **Documentation**
 
 ### **Backend Documentation (This Repository)**
 
@@ -240,7 +240,7 @@ open http://localhost:3001               # Grafana (admin/admin)
 
 ---
 
-## 🔧 **Development**
+## **Development**
 
 ### **Backend Repository Structure**
 
@@ -282,7 +282,7 @@ docker compose down
 
 ---
 
-## 🚀 **Deployment**
+## **Deployment**
 
 ### **Complete System Deployment**
 
@@ -350,14 +350,3 @@ To deploy the full Excise Tax Payment Platform, you need both repositories:
 - JWT tokens for session management
 - WebSocket for real-time notifications (optional)
 
----
-
-## 📜 **License**
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-**Built with ❤️ for Government Innovation**
-
-**Revolutionizing public sector payments with blockchain technology.**
