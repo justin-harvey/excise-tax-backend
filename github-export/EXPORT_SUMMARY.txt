@@ -1,0 +1,14 @@
+﻿# GitHub Export Summary
+Generated: 2025-12-29 19:03:21
+
+## Statistics
+Total Files: 103
+Total Directories: 65
+
+## Included Components
+- Backend Go microservices (6 services)
+- Database migrations (4 sets)
+- Docker infrastructure configuration
+- GitHub Actions CI/CD workflows
+- Complete documentation
+- Automation scripts
