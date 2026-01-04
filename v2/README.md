@@ -4,17 +4,13 @@ Lightweight XRPL client and services following Unix philosophy.
 
 ## Quick Start
 
-### 1. Build CLI
+### CLI Tool
 
 ```bash
 cd v2
 go mod download
 go build -o xrpl-cli ./cmd/xrpl-cli
-```
 
-### 2. Run CLI
-
-```bash
 # Get account balance
 ./xrpl-cli balance rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY
 
@@ -30,6 +26,32 @@ go build -o xrpl-cli ./cmd/xrpl-cli
 # Use mainnet
 ./xrpl-cli -network mainnet balance rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY
 ```
+
+### HTTP API
+
+```bash
+# Build and run locally
+go build -o api ./cmd/api/main.go
+./api -env=development -log-level=debug
+
+# Or run with Docker + Swagger UI
+docker-compose --profile dev up
+
+# Test the API
+curl http://localhost:8080/health
+curl http://localhost:8080/xrpl/accounts/rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY/balance
+
+# Open Swagger UI
+open http://localhost:8081/swagger
+```
+
+#### API Endpoints
+
+- **Health:** `GET /health`, `/health/ready`, `/health/live`
+- **Accounts:** `GET /xrpl/accounts/{address}/balance`, `/info`, `/transactions`
+- **Transactions:** `GET /xrpl/transactions/{hash}`, `/{hash}/status`
+
+See [api/README.md](api/README.md) for complete API documentation.
 
 ## Testing
 
@@ -118,10 +140,27 @@ SERVER_PORT=8080
 LOG_LEVEL=debug
 ```
 
-## Help
+## Configuration
+
+### CLI Flags
 
 ```bash
 ./xrpl-cli --help
+```
+
+### API Configuration
+
+Set via command-line flags or environment variables:
+
+```bash
+# Flags
+./api -port=8080 -env=development -xrpl-url=wss://s.altnet.rippletest.net:51233
+
+# Environment variables
+export API_PORT=8080
+export ENV=development
+export XRPL_URL=wss://s.altnet.rippletest.net:51233
+export LOG_LEVEL=debug
 ```
 
 ## Requirements

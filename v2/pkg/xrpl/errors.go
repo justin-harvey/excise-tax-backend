@@ -28,4 +28,10 @@ var (
 
 	// ErrConnectionClosed indicates the connection was closed
 	ErrConnectionClosed = errors.New("xrpl: connection closed")
+
+	// ErrAccountNotFound indicates the requested account was not found
+	ErrAccountNotFound = errors.New("xrpl: account not found")
+
+	// ErrTransactionNotFound indicates the requested transaction was not found
+	ErrTransactionNotFound = errors.New("xrpl: transaction not found")
 )

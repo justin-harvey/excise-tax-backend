@@ -121,13 +121,13 @@ func handleBalance(ctx context.Context, client *xrpl.Client, args []string) erro
 	}
 
 	// Convert drops to XRP
-	xrp, err := xrpl.DropsToXRP(info.Balance)
+	xrp, err := xrpl.DropsToXRP(fmt.Sprintf("%d", info.Balance))
 	if err != nil {
 		return fmt.Errorf("failed to convert balance: %w", err)
 	}
 
 	if jsonOutput {
-		output := map[string]string{
+		output := map[string]interface{}{
 			"account":       info.Account,
 			"balance":       xrp,
 			"balance_drops": info.Balance,
@@ -154,7 +154,7 @@ func handleInfo(ctx context.Context, client *xrpl.Client, args []string) error {
 	}
 
 	// Convert drops to XRP
-	xrp, err := xrpl.DropsToXRP(info.Balance)
+	xrp, err := xrpl.DropsToXRP(fmt.Sprintf("%d", info.Balance))
 	if err != nil {
 		return fmt.Errorf("failed to convert balance: %w", err)
 	}
@@ -167,19 +167,19 @@ func handleInfo(ctx context.Context, client *xrpl.Client, args []string) error {
 			"sequence":      info.Sequence,
 			"owner_count":   info.OwnerCount,
 		}
-		if info.PreviousTxn != "" {
-			output["previous_txn"] = info.PreviousTxn
+		if info.PreviousTxnID != "" {
+			output["previous_txn"] = info.PreviousTxnID
 		}
 		return printJSON(output)
 	}
 
 	// Output structured information to stdout
 	fmt.Printf("Account:  %s\n", info.Account)
-	fmt.Printf("Balance:  %s XRP (%s drops)\n", xrp, info.Balance)
+	fmt.Printf("Balance:  %s XRP (%d drops)\n", xrp, info.Balance)
 	fmt.Printf("Sequence: %d\n", info.Sequence)
 	fmt.Printf("Objects:  %d\n", info.OwnerCount)
-	if info.PreviousTxn != "" {
-		fmt.Printf("Last Tx:  %s\n", info.PreviousTxn)
+	if info.PreviousTxnID != "" {
+		fmt.Printf("Last Tx:  %s\n", info.PreviousTxnID)
 	}
 
 	return nil

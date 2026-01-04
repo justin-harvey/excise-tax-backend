@@ -297,11 +297,365 @@ All success criteria met:
 
 ---
 
-## Phase 3: Database Layer (Week 4)
+## Phase 3: HTTP RESTful API Layer (Week 4-5) ✅ COMPLETE
 
-**Goal:** Simple, focused database access following Let's Go patterns
+**Goal:** Build RESTful HTTP API that exposes all CLI functionality with OpenAPI specification
 
-### 3.1 Repository Pattern (Let's Go Further)
+### 3.1 HTTP Architecture & Separation
+
+**Key Principle:** CLI and HTTP API share the same underlying XRPL library but remain independent. CLI can be used standalone, API is containerized and web-accessible.
+
+```
+v2/
+├── cmd/
+│   ├── xrpl-cli/               # Standalone CLI (not containerized)
+│   │   └── main.go
+│   └── api/                    # HTTP API service (containerized)
+│       └── main.go             # API server entry point
+├── internal/
+│   ├── api/
+│   │   ├── server.go           # HTTP server setup
+│   │   ├── routes.go           # Route definitions
+│   │   ├── handlers.go         # HTTP handlers
+│   │   ├── middleware.go       # Middleware chain
+│   │   ├── errors.go           # Error responses
+│   │   └── helpers.go          # Response helpers
+│   └── validator/
+│       └── validator.go        # Input validation
+├── api/
+│   ├── openapi.yaml            # OpenAPI 3.0 specification
+│   └── README.md               # API documentation
+├── Dockerfile.dev              # Development API build
+├── Dockerfile                  # Production API build
+└── docker-compose.yml          # API + Swagger UI services
+```
+
+### 3.2 HTTP Implementation Checklist
+
+#### Server Setup (`internal/api/server.go`)
+- [ ] Use `http.Server` from standard library
+- [ ] Configure timeouts: `ReadTimeout`, `WriteTimeout`, `IdleTimeout`
+- [ ] Implement graceful shutdown with signals
+- [ ] Use `context.Context` for shutdown coordination
+- [ ] Close all resources in shutdown handler
+- [ ] Support for both dev and production modes
+
+#### Routing (`internal/api/routes.go`)
+- [ ] Use `http.ServeMux` (Go 1.22+) for routing
+- [ ] RESTful route design following best practices
+- [ ] Method-based routing (`GET`, `POST`, `PUT`, `DELETE`)
+- [ ] Middleware chain per route group
+- [ ] Route pattern: `/v1/xrpl/{resource}`
+- [ ] Version API paths (`/v1/`)
+
+#### XRPL API Endpoints (`internal/api/handlers.go`)
+
+All CLI functions exposed as RESTful endpoints:
+
+**Account Operations:**
+- [ ] `GET /v1/xrpl/accounts/{address}/balance` - Get account balance
+- [ ] `GET /v1/xrpl/accounts/{address}/info` - Get account info
+- [ ] `GET /v1/xrpl/accounts/{address}/transactions` - Get transaction history
+  - [ ] Query params: `limit`, `marker` for pagination
+
+**Transaction Operations:**
+- [ ] `GET /v1/xrpl/transactions/{hash}` - Get transaction details
+- [ ] `GET /v1/xrpl/transactions/{hash}/status` - Verify transaction status
+
+**Subscription Operations:**
+- [ ] `POST /v1/xrpl/subscriptions` - Subscribe to account (WebSocket upgrade)
+- [ ] `DELETE /v1/xrpl/subscriptions/{address}` - Unsubscribe from account
+- [ ] `GET /v1/xrpl/subscriptions` - List active subscriptions
+
+**Health & Info:**
+- [ ] `GET /v1/health` - Basic health check
+- [ ] `GET /v1/health/ready` - Readiness probe
+- [ ] `GET /v1/health/live` - Liveness probe
+- [ ] `GET /v1/info` - API version and capabilities
+
+#### Handler Implementation
+- [ ] One handler per endpoint
+- [ ] Handler signature: `func(w http.ResponseWriter, r *http.Request)`
+- [ ] Dependency injection via struct methods
+- [ ] Parse request body with `json.Decoder`
+- [ ] Validate input before processing
+- [ ] Return structured JSON responses
+- [ ] Use underlying XRPL library from Phase 2
+- [ ] Proper error handling and status codes
+
+#### Middleware (`internal/api/middleware.go`)
+- [ ] Recovery from panics (must be first)
+- [ ] Request ID generation and propagation
+- [ ] Structured logging with `slog`
+- [ ] CORS headers (configurable origins)
+- [ ] Rate limiting (per IP or API key)
+- [ ] Request size limits
+- [ ] Request timeout middleware
+- [ ] Content-Type validation
+
+#### Error Handling (`internal/api/errors.go`)
+- [ ] Central error response function
+- [ ] Consistent error JSON structure
+- [ ] Map errors to HTTP status codes
+- [ ] Log errors with context
+- [ ] Don't leak internal errors to clients
+- [ ] RFC 7807 Problem Details format
+
+#### Request/Response Helpers (`internal/api/helpers.go`)
+- [ ] `readJSON(r *http.Request, dst interface{}) error`
+- [ ] `writeJSON(w http.ResponseWriter, status int, data interface{}) error`
+- [ ] `readPathParam(r *http.Request, name string) string`
+- [ ] `readQueryParam(r *http.Request, name, defaultValue string) string`
+- [ ] `badRequestResponse(w http.ResponseWriter, err error)`
+- [ ] `serverErrorResponse(w http.ResponseWriter, err error)`
+- [ ] `notFoundResponse(w http.ResponseWriter)`
+
+#### Input Validation (`internal/validator/`)
+- [ ] Create `Validator` type with `Errors` map
+- [ ] Validation methods: `Check(ok bool, key, message string)`
+- [ ] Reusable validation rules: `NotBlank()`, `MaxChars()`, `In()`
+- [ ] XRPL-specific validators: `ValidAddress()`, `ValidTxHash()`
+- [ ] Validate at handler level, before business logic
+
+### 3.3 OpenAPI 3.0 Specification
+
+#### OpenAPI Document (`api/openapi.yaml`)
+- [ ] OpenAPI 3.0.3 specification
+- [ ] Complete API documentation
+- [ ] All endpoints with request/response schemas
+- [ ] Error response schemas
+- [ ] Authentication schemes (if applicable)
+- [ ] Example requests and responses
+- [ ] Tags for endpoint grouping
+- [ ] Server definitions (dev, staging, prod)
+
+#### Schema Definitions
+- [ ] `Account` - Account information schema
+- [ ] `Transaction` - Transaction details schema
+- [ ] `Balance` - Balance response schema
+- [ ] `Error` - Error response schema (RFC 7807)
+- [ ] `HealthCheck` - Health check response
+- [ ] `Subscription` - Subscription information
+
+#### OpenAPI Generation
+- [ ] Manual YAML file creation (preferred for accuracy)
+- [ ] Or use `swaggo/swag` for code annotations
+- [ ] Validate spec with `openapi-generator validate`
+- [ ] Generate client SDKs (optional): Go, Python, JavaScript
+
+### 3.4 Docker Configuration
+
+#### Development Dockerfile (`Dockerfile.dev`)
+```dockerfile
+FROM golang:1.22-alpine AS builder
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+# Build both API and CLI
+RUN go build -o /api cmd/api/main.go
+RUN go build -o /xrpl-cli cmd/xrpl-cli/main.go
+
+FROM alpine:latest
+RUN apk --no-cache add ca-certificates
+WORKDIR /root/
+# Copy both binaries
+COPY --from=builder /api .
+COPY --from=builder /xrpl-cli .
+COPY api/openapi.yaml ./api/
+EXPOSE 8080
+CMD ["./api"]
+```
+
+#### Production Dockerfile (`Dockerfile`)
+```dockerfile
+FROM golang:1.22-alpine AS builder
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+# Build with optimizations
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags='-s -w' -o /api cmd/api/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags='-s -w' -o /xrpl-cli cmd/xrpl-cli/main.go
+
+FROM scratch
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=builder /api /api
+COPY --from=builder /xrpl-cli /xrpl-cli
+COPY api/openapi.yaml /api/
+EXPOSE 8080
+CMD ["/api"]
+```
+
+#### Docker Compose (`docker-compose.yml`)
+```yaml
+version: '3.8'
+
+services:
+  # API Service (Development)
+  api-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    profiles: ["dev"]
+    ports:
+      - "8080:8080"
+    environment:
+      - ENV=development
+      - XRPL_URL=wss://s.altnet.rippletest.net:51233
+      - LOG_LEVEL=debug
+    volumes:
+      - ./api:/root/api:ro
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/v1/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks:
+      - xrpl-net
+
+  # API Service (Production)
+  api-prod:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    profiles: ["prod"]
+    ports:
+      - "8080:8080"
+    environment:
+      - ENV=production
+      - XRPL_URL=${XRPL_URL}
+      - LOG_LEVEL=info
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - xrpl-net
+    restart: unless-stopped
+
+  # Swagger UI
+  swagger-ui:
+    image: swaggerapi/swagger-ui:latest
+    profiles: ["dev", "prod"]
+    ports:
+      - "8081:8080"
+    environment:
+      - SWAGGER_JSON=/api/openapi.yaml
+      - BASE_URL=/swagger
+    volumes:
+      - ./api/openapi.yaml:/api/openapi.yaml:ro
+    depends_on:
+      - api-dev
+    networks:
+      - xrpl-net
+
+networks:
+  xrpl-net:
+    driver: bridge
+```
+
+### 3.5 API Server Implementation
+
+#### Main Entry Point (`cmd/api/main.go`)
+- [ ] Parse command-line flags with `flag` package
+- [ ] Load configuration (flags → env → file → defaults)
+- [ ] Initialize structured logger (slog)
+- [ ] Initialize XRPL client from Phase 2 library
+- [ ] Set up HTTP server with routes and middleware
+- [ ] Start server in goroutine
+- [ ] Listen for shutdown signals (SIGINT, SIGTERM)
+- [ ] Graceful shutdown: close connections, finish requests
+- [ ] Exit with proper status codes
+
+#### Configuration Structure
+```go
+type Config struct {
+    Port        int
+    Env         string // "development", "production"
+    XRPL        XRPLConfig
+    Logging     LogConfig
+    RateLimit   RateLimitConfig
+    CORS        CORSConfig
+}
+```
+
+### 3.6 Testing Checklist
+
+#### Unit Tests
+- [ ] Test all handlers with `httptest`
+- [ ] Mock XRPL client for handler tests
+- [ ] Test middleware chain
+- [ ] Test error responses
+- [ ] Test input validation
+- [ ] Table-driven tests for multiple scenarios
+
+#### Integration Tests
+- [ ] Test against real XRPL testnet
+- [ ] Test full HTTP request/response cycle
+- [ ] Test WebSocket subscriptions
+- [ ] Test rate limiting
+- [ ] Test CORS headers
+- [ ] Test graceful shutdown
+
+#### API Testing
+- [ ] Use Postman or similar for manual testing
+- [ ] Test with Swagger UI
+- [ ] Verify OpenAPI spec accuracy
+- [ ] Test all endpoints documented in spec
+- [ ] Test error scenarios
+
+### 3.7 Success Criteria
+
+```bash
+# Start development environment
+docker-compose --profile dev up
+
+# API is accessible
+curl http://localhost:8080/v1/health
+# {"status":"ok"}
+
+# Get account balance via API
+curl http://localhost:8080/v1/xrpl/accounts/rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY/balance
+# {"account":"rPEPPER...","balance":"777.495588","balance_drops":"777495588"}
+
+# Swagger UI accessible
+open http://localhost:8081/swagger
+
+# CLI still works independently
+./xrpl-cli balance rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY
+# 777.495588 XRP
+
+# Production build works
+docker-compose --profile prod up
+
+# All tests pass
+go test ./...
+# PASS
+
+# OpenAPI spec is valid
+openapi-generator validate -i api/openapi.yaml
+# Valid!
+```
+
+**Phase 3 Complete When:**
+- ✅ All CLI functions accessible via REST API
+- ✅ OpenAPI 3.0 spec complete and valid
+- ✅ Swagger UI integrated and functional
+- ✅ Docker dev and prod builds working
+- ✅ CLI remains independent and functional
+- ✅ All tests passing
+- ✅ API documentation complete
+- ✅ Graceful shutdown implemented
+
+---
+
+## Phase 4: Database Layer (Week 6)
+
+**Goal:** Simple, focused database access following Let's Go patterns, integrated with HTTP API
+
+### 4.1 Repository Pattern (Let's Go Further)
 
 ```
 v2/internal/
@@ -315,7 +669,7 @@ v2/internal/
     └── mock.go          # Mock for testing
 ```
 
-### 3.2 Database Implementation Checklist
+### 4.2 Database Implementation Checklist
 
 #### Models (`internal/models/`)
 - [ ] Plain Go structs, no ORM
@@ -362,97 +716,17 @@ type Store interface {
 - [ ] Test transaction rollback behavior
 - [ ] Mock store for unit tests
 
----
-
-## Phase 4: HTTP Layer (Week 5-6)
-
-**Goal:** Build HTTP handlers following Let's Go patterns
-
-### 4.1 HTTP Structure
-
-```
-v2/
-├── cmd/
-│   └── api/
-│       └── main.go           # Application entry point
-├── internal/
-│   ├── server/
-│   │   ├── server.go         # HTTP server setup
-│   │   ├── routes.go         # Route definitions
-│   │   ├── handlers.go       # HTTP handlers
-│   │   ├── middleware.go     # Middleware chain
-│   │   ├── errors.go         # Error responses
-│   │   └── helpers.go        # Response helpers
-│   └── validator/
-│       └── validator.go      # Input validation
-```
-
-### 4.2 HTTP Implementation Checklist
-
-#### Server Setup (`internal/server/server.go`)
-- [ ] Use `http.Server` from standard library
-- [ ] Configure timeouts: `ReadTimeout`, `WriteTimeout`, `IdleTimeout`
-- [ ] Implement graceful shutdown with signals
-- [ ] Use `context.Context` for shutdown coordination
-- [ ] Close all resources in shutdown handler
-
-#### Routing (`internal/server/routes.go`)
-- [ ] Use `http.ServeMux` (Go 1.22+) or `chi` router
-- [ ] RESTful route design
-- [ ] Method-based routing (`GET`, `POST`, `PUT`, `DELETE`)
-- [ ] Middleware chain per route group
-- [ ] Route pattern: `/v1/payments/{id}`
-
-#### Handlers (`internal/server/handlers.go`)
-- [ ] One handler per endpoint
-- [ ] Handler signature: `func(w http.ResponseWriter, r *http.Request)`
-- [ ] Dependency injection via struct methods
-- [ ] Parse request body with `json.Decoder`
-- [ ] Validate input before processing
-- [ ] Return structured JSON responses
-
-#### Middleware (`internal/server/middleware.go`)
-- [ ] Recovery from panics (must be first)
-- [ ] Request ID generation and propagation
-- [ ] Structured logging with `slog`
-- [ ] Authentication (JWT validation)
-- [ ] Authorization (role-based checks)
-- [ ] CORS headers
-- [ ] Rate limiting
-- [ ] Request size limits
-
-#### Error Handling (`internal/server/errors.go`)
-- [ ] Central error response function
-- [ ] Consistent error JSON structure
-- [ ] Map errors to HTTP status codes
-- [ ] Log errors with context
-- [ ] Don't leak internal errors to clients
-
-#### Request/Response Helpers (`internal/server/helpers.go`)
-- [ ] `readJSON(r *http.Request, dst interface{}) error`
-- [ ] `writeJSON(w http.ResponseWriter, status int, data interface{}) error`
-- [ ] `readIDParam(r *http.Request) (int64, error)`
-- [ ] `badRequestResponse(w http.ResponseWriter, err error)`
-- [ ] `serverErrorResponse(w http.ResponseWriter, err error)`
-
-#### Input Validation (`internal/validator/`)
-- [ ] Create `Validator` type with `Errors` map
-- [ ] Validation methods: `Check(ok bool, key, message string)`
-- [ ] Reusable validation rules: `NotBlank()`, `MaxChars()`, `In()`
-- [ ] Validate at handler level, before business logic
-
-#### Testing
-- [ ] `httptest` package for handler tests
-- [ ] Test all HTTP methods
-- [ ] Test error responses
-- [ ] Test middleware chain
-- [ ] Integration tests with full server
+#### Integration with HTTP API
+- [ ] Add database endpoints to existing API (from Phase 3)
+- [ ] Update OpenAPI spec with database operations
+- [ ] Add PostgreSQL service to docker-compose.yml
+- [ ] Update health checks to include database connectivity
 
 ---
 
 ## Phase 5: Payment Service (Week 7-8)
 
-**Goal:** Compose XRPL client, database, and HTTP layers into payment service
+**Goal:** Compose XRPL client (Phase 2), HTTP API (Phase 3), and database (Phase 4) into complete payment service
 
 ### 5.1 Service Architecture
 
@@ -569,7 +843,7 @@ Following Unix philosophy, tax service is independent, composable with payment s
 
 ---
 
-## Phase 7: Configuration & Deployment (Week 10)
+## Phase 7: Enhanced Configuration & Deployment (Week 10)
 
 **Goal:** Production-ready configuration and deployment
 
@@ -801,7 +1075,11 @@ type Config struct {
 ✅ 80%+ test coverage
 ✅ Documentation complete
 
-### Phase 4: HTTP API
+### Phase 3: HTTP RESTful API
+✅ All CLI functions exposed via REST
+✅ OpenAPI 3.0 spec complete
+✅ Swagger UI integrated
+✅ Docker dev and prod working
 ✅ All endpoints documented
 ✅ <100ms p99 response time
 ✅ Graceful shutdown in <10s
@@ -954,14 +1232,14 @@ func (app *Application) createPaymentHandler(w http.ResponseWriter, r *http.Requ
 
 | Phase | Duration | Deliverable |
 |-------|----------|-------------|
-| 1. XRPL CLI | 2 weeks | Working CLI tool |
-| 2. Library | 1 week | Reusable XRPL package |
-| 3. Database | 1 week | Repository layer |
-| 4. HTTP Layer | 2 weeks | HTTP server framework |
+| 1. XRPL CLI ✅ | 2 weeks | Working CLI tool |
+| 2. Library ✅ | 1 week | Reusable XRPL package |
+| 3. HTTP RESTful API | 2 weeks | API + OpenAPI + Swagger UI |
+| 4. Database Layer | 1 week | Repository layer |
 | 5. Payment Service | 2 weeks | Complete payment API |
 | 6. Tax Service | 1 week | Complete tax API |
-| 7. Config & Deploy | 1 week | Docker setup |
-| 8. Observability | 1 week | Logging & health checks |
+| 7. Enhanced Config | 1 week | Production config |
+| 8. Observability | 1 week | Logging & monitoring |
 | 9. Testing | 1 week | Full test suite |
 | 10. Production | 2 weeks | Live in production |
 | **Total** | **14 weeks** | **V2 in Production** |

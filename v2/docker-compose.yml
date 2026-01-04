@@ -26,7 +26,77 @@ services:
       retries: 5
       start_period: 10s
 
-  # Development service (hot reload)
+  # XRPL API Service (Development)
+  api-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: xrpl-api-dev
+    restart: unless-stopped
+    profiles: ["dev"]
+    ports:
+      - "8080:8080"
+    environment:
+      - ENV=development
+      - API_PORT=8080
+      - XRPL_URL=${XRPL_URL:-wss://s.altnet.rippletest.net:51233}
+      - LOG_LEVEL=debug
+      - LOG_FORMAT=text
+    volumes:
+      - ./api:/home/app/api:ro
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/v1/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - excise-tax-network
+
+  # XRPL API Service (Production)
+  api-prod:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: xrpl-api-prod
+    restart: unless-stopped
+    profiles: ["prod"]
+    ports:
+      - "8080:8080"
+    environment:
+      - ENV=production
+      - API_PORT=8080
+      - XRPL_URL=${XRPL_URL:-wss://xrplcluster.com}
+      - LOG_LEVEL=info
+      - LOG_FORMAT=json
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - excise-tax-network
+
+  # Swagger UI for API documentation
+  swagger-ui:
+    image: swaggerapi/swagger-ui:latest
+    container_name: xrpl-swagger-ui
+    restart: unless-stopped
+    profiles: ["dev", "prod"]
+    ports:
+      - "8081:8080"
+    environment:
+      - SWAGGER_JSON=/api/openapi.yaml
+      - BASE_URL=/swagger
+      - DEEP_LINKING=true
+      - DISPLAY_REQUEST_DURATION=true
+    volumes:
+      - ./api/openapi.yaml:/api/openapi.yaml:ro
+    networks:
+      - excise-tax-network
+
+  # Development service (legacy - for v1 services if needed)
   dev:
     build:
       context: .
@@ -38,7 +108,7 @@ services:
     environment:
       - APP_ENV=development
       - SERVER_HOST=0.0.0.0
-      - SERVER_PORT=${SERVER_PORT:-8080}
+      - SERVER_PORT=${SERVER_PORT:-9000}
       - DB_HOST=postgres
       - DB_PORT=5432
       - DB_USER=${POSTGRES_USER:-postgres}
@@ -50,7 +120,7 @@ services:
       - JWT_ACCESS_TOKEN_DURATION=${JWT_ACCESS_TOKEN_DURATION:-1h}
       - JWT_REFRESH_TOKEN_DURATION=${JWT_REFRESH_TOKEN_DURATION:-168h}
     ports:
-      - "${SERVER_PORT:-8080}:8080"
+      - "${SERVER_PORT:-9000}:9000"
     volumes:
       - .:/app
       - go-mod-cache:/go/pkg/mod
@@ -60,9 +130,9 @@ services:
     networks:
       - excise-tax-network
     profiles:
-      - dev
+      - legacy-dev
 
-  # Production release service
+  # Production release service (legacy - for v1 services if needed)
   release:
     build:
       context: .
@@ -74,7 +144,7 @@ services:
     environment:
       - APP_ENV=${APP_ENV:-production}
       - SERVER_HOST=0.0.0.0
-      - SERVER_PORT=${SERVER_PORT:-8080}
+      - SERVER_PORT=${SERVER_PORT:-9000}
       - DB_HOST=postgres
       - DB_PORT=5432
       - DB_USER=${POSTGRES_USER:-postgres}
@@ -86,20 +156,20 @@ services:
       - JWT_ACCESS_TOKEN_DURATION=${JWT_ACCESS_TOKEN_DURATION:-1h}
       - JWT_REFRESH_TOKEN_DURATION=${JWT_REFRESH_TOKEN_DURATION:-168h}
     ports:
-      - "${SERVER_PORT:-8080}:8080"
+      - "${SERVER_PORT:-9000}:9000"
     depends_on:
       postgres:
         condition: service_healthy
     networks:
       - excise-tax-network
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
     profiles:
-      - release
+      - legacy-release
 
   # Test service - runs tests in isolated environment
   test:

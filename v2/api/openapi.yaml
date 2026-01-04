@@ -1,0 +1,511 @@
+openapi: 3.0.3
+info:
+  title: XRPL API
+  description: |
+    RESTful API for interacting with the XRP Ledger (XRPL).
+    
+    This API provides endpoints to:
+    - Query account balances and information
+    - Retrieve transaction details and history
+    - Verify transaction status
+    
+    All CLI functionality is accessible via these REST endpoints.
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@example.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8080
+    description: Development server
+  - url: https://api-staging.example.com
+    description: Staging server
+  - url: https://api.example.com
+    description: Production server
+
+tags:
+  - name: Health
+    description: Health check and readiness endpoints
+  - name: Accounts
+    description: XRPL account operations
+  - name: Transactions
+    description: XRPL transaction operations
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Basic health check
+      description: Returns a simple health check indicating the API is running
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: ok
+                timestamp: "2026-01-03T10:00:00Z"
+
+  /health/ready:
+    get:
+      tags:
+        - Health
+      summary: Readiness check
+      description: Checks if the service is ready to accept traffic (includes XRPL connection check)
+      operationId: readinessCheck
+      responses:
+        '200':
+          description: Service is ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadinessResponse'
+        '503':
+          description: Service is not ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /health/live:
+    get:
+      tags:
+        - Health
+      summary: Liveness check
+      description: Indicates if the service process is alive
+      operationId: livenessCheck
+      responses:
+        '200':
+          description: Service is alive
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /info:
+    get:
+      tags:
+        - Health
+      summary: API information
+      description: Returns API version and capabilities
+      operationId: getInfo
+      responses:
+        '200':
+          description: API information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InfoResponse'
+
+  /xrpl/accounts/{address}/balance:
+    get:
+      tags:
+        - Accounts
+      summary: Get account balance
+      description: Retrieves the XRP balance for an XRPL account
+      operationId: getAccountBalance
+      parameters:
+        - $ref: '#/components/parameters/AddressPath'
+      responses:
+        '200':
+          description: Account balance retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BalanceResponse'
+              example:
+                account: rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY
+                balance_xrp: "777.495588"
+                balance_drops: 777495588
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /xrpl/accounts/{address}/info:
+    get:
+      tags:
+        - Accounts
+      summary: Get account information
+      description: Retrieves detailed information for an XRPL account
+      operationId: getAccountInfo
+      parameters:
+        - $ref: '#/components/parameters/AddressPath'
+      responses:
+        '200':
+          description: Account information retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountInfoResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /xrpl/accounts/{address}/transactions:
+    get:
+      tags:
+        - Accounts
+      summary: Get account transaction history
+      description: Retrieves transaction history for an XRPL account with pagination
+      operationId: getAccountTransactions
+      parameters:
+        - $ref: '#/components/parameters/AddressPath'
+        - $ref: '#/components/parameters/LimitQuery'
+      responses:
+        '200':
+          description: Transaction history retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /xrpl/transactions/{hash}:
+    get:
+      tags:
+        - Transactions
+      summary: Get transaction details
+      description: Retrieves detailed information about a specific transaction
+      operationId: getTransaction
+      parameters:
+        - $ref: '#/components/parameters/HashPath'
+      responses:
+        '200':
+          description: Transaction details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /xrpl/transactions/{hash}/status:
+    get:
+      tags:
+        - Transactions
+      summary: Verify transaction status
+      description: Verifies the validation status of a transaction
+      operationId: getTransactionStatus
+      parameters:
+        - $ref: '#/components/parameters/HashPath'
+      responses:
+        '200':
+          description: Transaction status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionStatusResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  parameters:
+    AddressPath:
+      name: address
+      in: path
+      required: true
+      description: XRPL account address (starts with 'r')
+      schema:
+        type: string
+        pattern: '^r[a-zA-Z0-9]{24,34}$'
+        example: rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY
+
+    HashPath:
+      name: hash
+      in: path
+      required: true
+      description: Transaction hash (64-character hex string)
+      schema:
+        type: string
+        pattern: '^[0-9A-Fa-f]{64}$'
+        example: 3B4D6B3F5E2A1C8D9F0A7B6C5E4D3A2B1C0D9E8F7A6B5C4D3E2F1A0B9C8D7E6F
+
+    LimitQuery:
+      name: limit
+      in: query
+      required: false
+      description: Maximum number of transactions to return (1-100)
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 10
+
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          type: string
+          example: ok
+        timestamp:
+          type: string
+          format: date-time
+
+    ReadinessResponse:
+      type: object
+      required:
+        - status
+        - checks
+      properties:
+        status:
+          type: string
+          example: ready
+        checks:
+          type: object
+          properties:
+            xrpl:
+              type: string
+              example: connected
+
+    InfoResponse:
+      type: object
+      required:
+        - version
+        - environment
+        - capabilities
+      properties:
+        version:
+          type: string
+          example: "1.0.0"
+        environment:
+          type: string
+          enum: [development, staging, production]
+        golang_version:
+          type: string
+          example: go1.22.0
+        capabilities:
+          type: array
+          items:
+            type: string
+          example:
+            - xrpl_account_balance
+            - xrpl_account_info
+            - xrpl_transaction_details
+
+    BalanceResponse:
+      type: object
+      required:
+        - account
+        - balance_xrp
+        - balance_drops
+      properties:
+        account:
+          type: string
+          description: XRPL account address
+        balance_xrp:
+          type: string
+          description: Balance in XRP (human-readable)
+          example: "777.495588"
+        balance_drops:
+          type: integer
+          description: Balance in drops (1 XRP = 1,000,000 drops)
+          example: 777495588
+
+    AccountInfoResponse:
+      type: object
+      required:
+        - account
+        - balance_xrp
+        - balance_drops
+        - sequence
+      properties:
+        account:
+          type: string
+        balance_xrp:
+          type: string
+        balance_drops:
+          type: integer
+        sequence:
+          type: integer
+          description: Account sequence number
+        flags:
+          type: integer
+          description: Account flags
+        owner_count:
+          type: integer
+          description: Number of objects owned
+        previous_txn_id:
+          type: string
+          description: Hash of previous transaction
+        previous_txn_lgr_seq:
+          type: integer
+          description: Ledger sequence of previous transaction
+
+    TransactionsResponse:
+      type: object
+      required:
+        - account
+        - limit
+        - count
+        - transactions
+      properties:
+        account:
+          type: string
+        limit:
+          type: integer
+        count:
+          type: integer
+          description: Number of transactions returned
+        transactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'
+
+    Transaction:
+      type: object
+      description: XRPL transaction object
+      properties:
+        hash:
+          type: string
+        ledger_index:
+          type: integer
+        date:
+          type: integer
+        tx:
+          type: object
+          description: Transaction details
+
+    TransactionResponse:
+      type: object
+      required:
+        - hash
+        - transaction
+      properties:
+        hash:
+          type: string
+        transaction:
+          $ref: '#/components/schemas/Transaction'
+
+    TransactionStatusResponse:
+      type: object
+      required:
+        - hash
+        - validated
+        - status
+      properties:
+        hash:
+          type: string
+        validated:
+          type: boolean
+          description: Whether the transaction is validated
+        status:
+          type: string
+          description: Transaction status
+        ledger_index:
+          type: integer
+          description: Ledger index where transaction was included
+
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - type
+            - title
+            - status
+          properties:
+            type:
+              type: string
+              description: URI reference for error type
+              example: https://api.example.com/errors/404
+            title:
+              type: string
+              description: Short, human-readable error summary
+              example: Not Found
+            status:
+              type: integer
+              description: HTTP status code
+              example: 404
+            detail:
+              type: string
+              description: Human-readable explanation
+              example: The requested resource could not be found
+            instance:
+              type: string
+              description: URI reference for this specific error occurrence
+              example: /xrpl/accounts/invalid_address/balance
+
+  responses:
+    BadRequest:
+      description: Bad request - invalid input
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              type: https://api.example.com/errors/400
+              title: Bad Request
+              status: 400
+              detail: invalid XRPL address format
+              instance: /xrpl/accounts/invalid/balance
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              type: https://api.example.com/errors/404
+              title: Not Found
+              status: 404
+              detail: The requested resource could not be found
+              instance: /xrpl/accounts/rNotFound/balance
+
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              type: https://api.example.com/errors/500
+              title: Internal Server Error
+              status: 500
+              detail: The server encountered an unexpected error
+              instance: /xrpl/accounts/rSomeAccount/balance
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT authentication (for future use)
+
+security: []

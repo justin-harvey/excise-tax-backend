@@ -167,6 +167,29 @@ func (c *Client) IsConnected() bool {
 	return c.conn != nil
 }
 
+// GetServerInfo retrieves information about the XRPL server.
+// This can be used for health checks to verify the connection is working.
+func (c *Client) GetServerInfo(ctx context.Context) (map[string]interface{}, error) {
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+
+	req := map[string]interface{}{
+		"command": "server_info",
+	}
+
+	resp, err := c.sendRequest(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("get server info: %w", err)
+	}
+
+	if resp.Status != "success" {
+		return nil, fmt.Errorf("%w: %s", ErrRequestFailed, resp.Error)
+	}
+
+	return resp.Result, nil
+}
+
 // GetAccountInfo retrieves account information for the given address.
 // Returns ErrNotConnected if not connected, ErrInvalidAddress if the address is invalid.
 func (c *Client) GetAccountInfo(ctx context.Context, address string) (*AccountInfo, error) {
@@ -191,6 +214,10 @@ func (c *Client) GetAccountInfo(ctx context.Context, address string) (*AccountIn
 	}
 
 	if resp.Status != "success" {
+		// Check if account not found
+		if resp.Error == "actNotFound" || resp.Error == "Account not found" {
+			return nil, ErrAccountNotFound
+		}
 		return nil, fmt.Errorf("%w: %s", ErrRequestFailed, resp.Error)
 	}
 
@@ -206,7 +233,10 @@ func (c *Client) GetAccountInfo(ctx context.Context, address string) (*AccountIn
 		info.Account = account
 	}
 	if balance, ok := accountData["Balance"].(string); ok {
-		info.Balance = balance
+		// Parse balance string to int64
+		var bal int64
+		fmt.Sscanf(balance, "%d", &bal)
+		info.Balance = bal
 	}
 	if seq, ok := accountData["Sequence"].(float64); ok {
 		info.Sequence = int64(seq)
@@ -214,8 +244,14 @@ func (c *Client) GetAccountInfo(ctx context.Context, address string) (*AccountIn
 	if count, ok := accountData["OwnerCount"].(float64); ok {
 		info.OwnerCount = int(count)
 	}
-	if txn, ok := accountData["PreviousTxnID"].(string); ok {
-		info.PreviousTxn = txn
+	if flags, ok := accountData["Flags"].(float64); ok {
+		info.Flags = int64(flags)
+	}
+	if txnID, ok := accountData["PreviousTxnID"].(string); ok {
+		info.PreviousTxnID = txnID
+	}
+	if txnSeq, ok := accountData["PreviousTxnLgrSeq"].(float64); ok {
+		info.PreviousTxnLgrSeq = int64(txnSeq)
 	}
 
 	return info, nil
@@ -245,6 +281,10 @@ func (c *Client) GetTransaction(ctx context.Context, hash string) (*TxResult, er
 	}
 
 	if resp.Status != "success" {
+		// Check if transaction not found
+		if resp.Error == "txnNotFound" || resp.Error == "Transaction not found" {
+			return nil, ErrTransactionNotFound
+		}
 		return nil, fmt.Errorf("%w: %s", ErrRequestFailed, resp.Error)
 	}
 

@@ -2,11 +2,13 @@ package xrpl
 
 // AccountInfo represents basic account information from XRPL
 type AccountInfo struct {
-	Account     string `json:"Account"`
-	Balance     string `json:"Balance"` // In drops (1 XRP = 1,000,000 drops)
-	Sequence    int64  `json:"Sequence"`
-	OwnerCount  int    `json:"OwnerCount"`
-	PreviousTxn string `json:"PreviousTxnID"`
+	Account           string `json:"Account"`
+	Balance           int64  `json:"Balance"` // In drops (1 XRP = 1,000,000 drops)
+	Sequence          int64  `json:"Sequence"`
+	OwnerCount        int    `json:"OwnerCount"`
+	Flags             int64  `json:"Flags,omitempty"`
+	PreviousTxnID     string `json:"PreviousTxnID,omitempty"`
+	PreviousTxnLgrSeq int64  `json:"PreviousTxnLgrSeq,omitempty"`
 }
 
 // Transaction represents an XRPL transaction
@@ -26,10 +28,11 @@ type Transaction struct {
 
 // TxResult represents the result of a transaction query
 type TxResult struct {
-	Hash      string      `json:"hash"`
-	Validated bool        `json:"validated"`
-	Status    string      `json:"status"` // "validated", "pending", or "failed"
-	Tx        Transaction `json:"transaction"`
+	Hash        string      `json:"hash"`
+	Validated   bool        `json:"validated"`
+	Status      string      `json:"status"` // "validated", "pending", or "failed"
+	LedgerIndex int64       `json:"ledger_index,omitempty"`
+	Tx          Transaction `json:"transaction"`
 }
 
 // StreamMessage represents a streaming message from XRPL subscriptions

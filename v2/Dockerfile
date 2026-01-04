@@ -1,17 +1,38 @@
+# Production Dockerfile - API Server
 FROM golang:1.25-alpine AS builder
-RUN apk add --no-cache git make
+
+# Install build dependencies
+RUN apk add --no-cache git ca-certificates make
+
 WORKDIR /app
+
+# Copy go mod files
 COPY go.mod go.sum ./
 RUN go mod download
-COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o /app/bin/xrpl-cli ./cmd/xrpl-cli
 
-FROM alpine:latest
-RUN apk --no-cache add ca-certificates tzdata wget
-RUN addgroup -g 1000 app && \
-    adduser -D -u 1000 -G app app
-WORKDIR /app
-COPY --from=builder /app/bin/xrpl-cli ./
-RUN chown -R app:app /app
-USER app
-ENTRYPOINT ["./xrpl-cli"]
+# Copy source code
+COPY . .
+
+# Build optimized binaries with stripped symbols
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags='-s -w -extldflags "-static"' -o /api-server ./cmd/api/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags='-s -w -extldflags "-static"' -o /xrpl-cli ./cmd/xrpl-cli/main.go
+
+# Production runtime - using scratch for minimal image size
+FROM scratch
+
+# Copy CA certificates from builder
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+
+# Copy binaries
+COPY --from=builder /api-server /api-server
+COPY --from=builder /xrpl-cli /xrpl-cli
+
+# Copy OpenAPI spec to /api-spec/ to avoid conflict with binary
+COPY --from=builder /app/api/openapi.yaml /api-spec/openapi.yaml
+
+# Expose API port
+EXPOSE 8080
+
+# Run API server
+CMD ["/api-server"]
+
