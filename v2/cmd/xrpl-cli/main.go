@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -21,6 +22,11 @@ const (
 	mainnetURL = "wss://xrplcluster.com"
 )
 
+var (
+	// Global flags
+	jsonOutput bool
+)
+
 func main() {
 	if err := run(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -32,6 +38,7 @@ func run() error {
 	// Define flags
 	network := flag.String("network", "testnet", "XRPL network (testnet or mainnet)")
 	timeout := flag.Duration("timeout", 10*time.Second, "Request timeout")
+	flag.BoolVar(&jsonOutput, "json", false, "Output in JSON format")
 	flag.Usage = usage
 	flag.Parse()
 
@@ -106,6 +113,15 @@ func handleBalance(ctx context.Context, client *xrpl.Client, args []string) erro
 		return fmt.Errorf("failed to convert balance: %w", err)
 	}
 
+	if jsonOutput {
+		output := map[string]string{
+			"account":       info.Account,
+			"balance":       xrp,
+			"balance_drops": info.Balance,
+		}
+		return printJSON(output)
+	}
+
 	// Output to stdout (for piping)
 	fmt.Printf("%s XRP\n", xrp)
 
@@ -130,6 +146,20 @@ func handleInfo(ctx context.Context, client *xrpl.Client, args []string) error {
 		return fmt.Errorf("failed to convert balance: %w", err)
 	}
 
+	if jsonOutput {
+		output := map[string]interface{}{
+			"account":       info.Account,
+			"balance":       xrp,
+			"balance_drops": info.Balance,
+			"sequence":      info.Sequence,
+			"owner_count":   info.OwnerCount,
+		}
+		if info.PreviousTxn != "" {
+			output["previous_txn"] = info.PreviousTxn
+		}
+		return printJSON(output)
+	}
+
 	// Output structured information to stdout
 	fmt.Printf("Account:  %s\n", info.Account)
 	fmt.Printf("Balance:  %s XRP (%s drops)\n", xrp, info.Balance)
@@ -152,6 +182,31 @@ func handleTransaction(ctx context.Context, client *xrpl.Client, args []string) 
 	result, err := client.GetTransaction(ctx, hash)
 	if err != nil {
 		return fmt.Errorf("failed to get transaction: %w", err)
+	}
+
+	if jsonOutput {
+		output := map[string]interface{}{
+			"hash":      result.Hash,
+			"status":    result.Status,
+			"validated": result.Validated,
+			"type":      result.Tx.TransactionType,
+			"account":   result.Tx.Account,
+		}
+		if result.Tx.Destination != "" {
+			output["destination"] = result.Tx.Destination
+		}
+		if result.Tx.Amount != nil {
+			output["amount"] = result.Tx.Amount
+		}
+		if result.Tx.Fee != "" {
+			output["fee"] = result.Tx.Fee
+		}
+		if result.Tx.Date > 0 {
+			unixTime := result.Tx.Date + 946684800
+			output["date"] = time.Unix(unixTime, 0).Format(time.RFC3339)
+			output["date_unix"] = unixTime
+		}
+		return printJSON(output)
 	}
 
 	// Output transaction details
@@ -215,6 +270,15 @@ func handleHistory(ctx context.Context, client *xrpl.Client, args []string) erro
 		return fmt.Errorf("failed to get transaction history: %w", err)
 	}
 
+	if jsonOutput {
+		output := map[string]interface{}{
+			"address":      address,
+			"count":        len(transactions),
+			"transactions": transactions,
+		}
+		return printJSON(output)
+	}
+
 	if len(transactions) == 0 {
 		fmt.Println("No transactions found")
 		return nil
@@ -256,6 +320,13 @@ func handleHistory(ctx context.Context, client *xrpl.Client, args []string) erro
 	return nil
 }
 
+// printJSON outputs data as formatted JSON to stdout
+func printJSON(data interface{}) error {
+	encoder := json.NewEncoder(os.Stdout)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(data)
+}
+
 func usage() {
 	fmt.Fprintf(os.Stderr, `xrpl-cli - XRPL Command Line Tool
 
@@ -272,22 +343,26 @@ Commands:
 Options:
   -network string      XRPL network: testnet or mainnet (default "testnet")
   -timeout duration    Request timeout (default 10s)
+  -json                Output in JSON format for machine parsing
 
 Examples:
   # Get balance on testnet
   xrpl-cli balance rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY
 
-  # Get account info on mainnet
-  xrpl-cli -network mainnet info rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY
+  # Get account info on mainnet in JSON format
+  xrpl-cli -network mainnet -json info rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY
 
   # Get transaction details
   xrpl-cli tx C71F385124008A436842B56DEF8196B0621762FBD9464F2510EE9C3D1A3322DA
 
-  # Get last 20 transactions
-  xrpl-cli history rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY 20
+  # Get last 20 transactions in JSON
+  xrpl-cli -json history rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY 20
 
   # Use as Unix filter (extract just the number)
   xrpl-cli balance rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY | cut -d' ' -f1
+
+  # Parse JSON with jq
+  xrpl-cli -json balance rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY | jq .balance
 
 Exit Codes:
   0  Success

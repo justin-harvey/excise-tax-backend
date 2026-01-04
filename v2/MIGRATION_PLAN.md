@@ -75,7 +75,7 @@ v2/
 - [x] Implement `Close() error` for cleanup
 - [x] Use `context.Context` for cancellation (Let's Go pattern)
 - [x] Return explicit errors, never panic in library code
-- [ ] **Test**: Write `client_test.go` with table-driven tests
+- [x] **Test**: Write `client_test.go` with table-driven tests
 
 #### Connection Management (`internal/xrpl/connection.go`)
 - [ ] Implement reconnection with exponential backoff
@@ -86,9 +86,9 @@ v2/
 #### XRPL Operations (`internal/xrpl/client.go`)
 - [x] `GetAccountInfo(address string) (*AccountInfo, error)`
 - [x] **Test**: Verify against testnet, test invalid address
-- [ ] `GetTransaction(hash string) (*Transaction, error)`
+- [x] `GetTransaction(hash string) (*Transaction, error)`
 - [ ] **Test**: Mock response, test invalid hash
-- [ ] `GetAccountTransactions(address string, limit int) ([]Transaction, error)`
+- [x] `GetAccountTransactions(address string, limit int) ([]Transaction, error)`
 - [ ] **Test**: Verify pagination, test limits
 - [ ] `SubscribeToAccount(address string) (<-chan Transaction, error)`
 - [ ] **Test**: Mock WebSocket, test channel close
@@ -100,8 +100,9 @@ v2/
 - [x] Implement subcommands: `balance`, `info`
 - [x] Exit codes: 0 (success), 1 (error), 2 (usage error)
 - [x] Write to stdout (data), stderr (errors, logs)
-- [ ] Add subcommands: `tx`, `history`, `subscribe`
-- [ ] Support `--json` flag for machine-readable output
+- [x] Add subcommands: `tx`, `history`
+- [x] Support `--json` flag for machine-readable output
+- [ ] Add subcommand: `subscribe` (real-time monitoring)
 - [ ] Accept config from flags, env vars, or config file
 - [ ] **Test**: Integration tests with testnet
 
@@ -125,7 +126,7 @@ v2/
 
 #### Documentation (As You Go)
 - [x] README with installation and usage
-- [ ] Update README with each new command
+- [x] Update README with each new command
 - [x] Code comments for all exported functions
 - [x] `--help` output with examples
 

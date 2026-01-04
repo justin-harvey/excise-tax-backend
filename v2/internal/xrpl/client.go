@@ -396,6 +396,11 @@ func DropsToXRP(drops string) (string, error) {
 		return "", err
 	}
 
+	// Validate that drops is non-negative
+	if d < 0 {
+		return "", fmt.Errorf("drops cannot be negative: %d", d)
+	}
+
 	// Convert to XRP (1 XRP = 1,000,000 drops)
 	xrp := float64(d) / 1_000_000.0
 	return fmt.Sprintf("%.6f", xrp), nil
