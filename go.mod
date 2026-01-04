@@ -1,6 +1,6 @@
 module github.com/excise-tax-portal/backend
 
-go 1.23.0
+go 1.2.0
 
 require (
 	github.com/gin-contrib/cors v1.7.6
