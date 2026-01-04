@@ -5,12 +5,13 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	"github.com/maxfelker/excise-tax-backend/v2/internal/xrpl"
+	"github.com/maxfelker/excise-tax-backend/v2/pkg/xrpl"
 )
 
 const (
@@ -64,11 +65,19 @@ func run() error {
 		return fmt.Errorf("invalid network: %s (must be 'testnet' or 'mainnet')", *network)
 	}
 
-	// Create client
-	client := xrpl.New(url)
+	// Create client with optional logger
+	var logger *slog.Logger
+	if os.Getenv("DEBUG") != "" {
+		logger = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	}
+
+	client := xrpl.New(url,
+		xrpl.WithTimeout(*timeout),
+		xrpl.WithLogger(logger),
+	)
 
 	// Create context with timeout
-	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), *timeout+5*time.Second)
 	defer cancel()
 
 	// Connect to XRPL

@@ -1,0 +1,683 @@
+package xrpl
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"sync"
+	"time"
+
+	"github.com/gorilla/websocket"
+)
+
+// Client represents an XRPL WebSocket client.
+// Client is safe for concurrent use by multiple goroutines.
+type Client struct {
+	url       string
+	conn      *websocket.Conn
+	mu        sync.RWMutex
+	writeMu   sync.Mutex // Separate mutex for WebSocket writes
+	nextID    int
+	responses map[int]chan Response
+	streams   map[string]chan StreamMessage
+	done      chan struct{}
+	streamsMu sync.RWMutex
+
+	// Configuration
+	timeout          time.Duration
+	handshakeTimeout time.Duration
+	logger           *slog.Logger
+	maxRetries       int
+}
+
+// Option is a functional option for configuring the Client.
+type Option func(*Client)
+
+// WithTimeout sets the timeout for XRPL requests.
+// Default is 10 seconds.
+func WithTimeout(d time.Duration) Option {
+	return func(c *Client) {
+		c.timeout = d
+	}
+}
+
+// WithHandshakeTimeout sets the timeout for WebSocket handshake.
+// Default is 10 seconds.
+func WithHandshakeTimeout(d time.Duration) Option {
+	return func(c *Client) {
+		c.handshakeTimeout = d
+	}
+}
+
+// WithLogger sets a custom logger for the client.
+// If not provided, logging is disabled.
+func WithLogger(l *slog.Logger) Option {
+	return func(c *Client) {
+		c.logger = l
+	}
+}
+
+// WithMaxRetries sets the maximum number of retry attempts for operations.
+// Default is 3.
+func WithMaxRetries(max int) Option {
+	return func(c *Client) {
+		c.maxRetries = max
+	}
+}
+
+// New creates a new XRPL client with the given WebSocket URL and options.
+// The client is not connected by default; call Connect to establish a connection.
+//
+// Example:
+//
+//	client := xrpl.New("wss://s.altnet.rippletest.net:51233",
+//		xrpl.WithTimeout(15*time.Second),
+//		xrpl.WithLogger(logger),
+//	)
+func New(url string, opts ...Option) *Client {
+	c := &Client{
+		url:              url,
+		responses:        make(map[int]chan Response),
+		streams:          make(map[string]chan StreamMessage),
+		done:             make(chan struct{}),
+		timeout:          10 * time.Second,
+		handshakeTimeout: 10 * time.Second,
+		maxRetries:       3,
+	}
+
+	// Apply options
+	for _, opt := range opts {
+		opt(c)
+	}
+
+	return c
+}
+
+// Connect establishes a WebSocket connection to XRPL.
+// Returns ErrAlreadyConnected if already connected.
+func (c *Client) Connect(ctx context.Context) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.conn != nil {
+		return ErrAlreadyConnected
+	}
+
+	dialer := websocket.Dialer{
+		HandshakeTimeout: c.handshakeTimeout,
+	}
+
+	conn, _, err := dialer.DialContext(ctx, c.url, nil)
+	if err != nil {
+		if c.logger != nil {
+			c.logger.Error("failed to connect to XRPL",
+				"url", c.url,
+				"error", err,
+			)
+		}
+		return fmt.Errorf("failed to connect to %s: %w", c.url, err)
+	}
+
+	c.conn = conn
+	c.done = make(chan struct{})
+
+	if c.logger != nil {
+		c.logger.Info("connected to XRPL", "url", c.url)
+	}
+
+	// Start reading responses in background
+	go c.readLoop()
+
+	return nil
+}
+
+// Close closes the WebSocket connection and releases all resources.
+// It is safe to call Close multiple times.
+func (c *Client) Close() error {
+	c.mu.Lock()
+
+	if c.conn == nil {
+		c.mu.Unlock()
+		return nil
+	}
+
+	if c.logger != nil {
+		c.logger.Info("closing XRPL connection")
+	}
+
+	// Close the done channel first to signal readLoop
+	close(c.done)
+
+	// Close the connection
+	err := c.conn.Close()
+	c.conn = nil
+
+	c.mu.Unlock()
+
+	// Give readLoop a moment to exit
+	time.Sleep(10 * time.Millisecond)
+
+	return err
+}
+
+// IsConnected returns true if the client is currently connected to XRPL.
+func (c *Client) IsConnected() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.conn != nil
+}
+
+// GetAccountInfo retrieves account information for the given address.
+// Returns ErrNotConnected if not connected, ErrInvalidAddress if the address is invalid.
+func (c *Client) GetAccountInfo(ctx context.Context, address string) (*AccountInfo, error) {
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+
+	// Basic address validation (XRPL addresses start with 'r')
+	if len(address) == 0 || address[0] != 'r' {
+		return nil, ErrInvalidAddress
+	}
+
+	req := map[string]interface{}{
+		"command":      "account_info",
+		"account":      address,
+		"ledger_index": "validated",
+	}
+
+	resp, err := c.sendRequest(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("get account info: %w", err)
+	}
+
+	if resp.Status != "success" {
+		return nil, fmt.Errorf("%w: %s", ErrRequestFailed, resp.Error)
+	}
+
+	// Extract account_data from result
+	accountData, ok := resp.Result["account_data"].(map[string]interface{})
+	if !ok {
+		return nil, ErrInvalidResponse
+	}
+
+	info := &AccountInfo{}
+
+	if account, ok := accountData["Account"].(string); ok {
+		info.Account = account
+	}
+	if balance, ok := accountData["Balance"].(string); ok {
+		info.Balance = balance
+	}
+	if seq, ok := accountData["Sequence"].(float64); ok {
+		info.Sequence = int64(seq)
+	}
+	if count, ok := accountData["OwnerCount"].(float64); ok {
+		info.OwnerCount = int(count)
+	}
+	if txn, ok := accountData["PreviousTxnID"].(string); ok {
+		info.PreviousTxn = txn
+	}
+
+	return info, nil
+}
+
+// GetTransaction retrieves a transaction by its hash.
+// Returns ErrNotConnected if not connected, ErrInvalidHash if the hash is invalid.
+func (c *Client) GetTransaction(ctx context.Context, hash string) (*TxResult, error) {
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+
+	// Basic hash validation (64 hex characters)
+	if len(hash) != 64 {
+		return nil, ErrInvalidHash
+	}
+
+	req := map[string]interface{}{
+		"command":     "tx",
+		"transaction": hash,
+		"binary":      false,
+	}
+
+	resp, err := c.sendRequest(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("get transaction: %w", err)
+	}
+
+	if resp.Status != "success" {
+		return nil, fmt.Errorf("%w: %s", ErrRequestFailed, resp.Error)
+	}
+
+	result := &TxResult{}
+
+	if hash, ok := resp.Result["hash"].(string); ok {
+		result.Hash = hash
+	}
+	if validated, ok := resp.Result["validated"].(bool); ok {
+		result.Validated = validated
+	}
+
+	// Extract transaction details
+	tx := Transaction{}
+	if hash, ok := resp.Result["hash"].(string); ok {
+		tx.Hash = hash
+	}
+	if txType, ok := resp.Result["TransactionType"].(string); ok {
+		tx.TransactionType = txType
+	}
+	if account, ok := resp.Result["Account"].(string); ok {
+		tx.Account = account
+	}
+	if dest, ok := resp.Result["Destination"].(string); ok {
+		tx.Destination = dest
+	}
+	if amount := resp.Result["Amount"]; amount != nil {
+		tx.Amount = amount
+	}
+	if fee, ok := resp.Result["Fee"].(string); ok {
+		tx.Fee = fee
+	}
+	if date, ok := resp.Result["date"].(float64); ok {
+		tx.Date = int64(date)
+	}
+	if validated, ok := resp.Result["validated"].(bool); ok {
+		tx.Validated = validated
+	}
+
+	result.Tx = tx
+	result.Status = "validated"
+	if !result.Validated {
+		result.Status = "pending"
+	}
+
+	return result, nil
+}
+
+// VerifyTransaction verifies a transaction and returns its validation status.
+// This is a convenience method that calls GetTransaction and checks the validated flag.
+func (c *Client) VerifyTransaction(ctx context.Context, hash string) (*TxResult, error) {
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+
+	// Get the transaction
+	result, err := c.GetTransaction(ctx, hash)
+	if err != nil {
+		return nil, fmt.Errorf("verify transaction: %w", err)
+	}
+
+	// Set status based on validation
+	if result.Validated {
+		result.Status = "validated"
+	} else {
+		result.Status = "pending"
+	}
+
+	return result, nil
+}
+
+// GetAccountTransactions retrieves recent transactions for an account.
+// The limit parameter controls the maximum number of transactions to return (1-200).
+// Returns an empty slice if no transactions are found.
+func (c *Client) GetAccountTransactions(ctx context.Context, address string, limit int) ([]Transaction, error) {
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+
+	// Basic address validation
+	if len(address) == 0 || address[0] != 'r' {
+		return nil, ErrInvalidAddress
+	}
+
+	// Limit bounds
+	if limit <= 0 {
+		limit = 10
+	}
+	if limit > 200 {
+		limit = 200
+	}
+
+	req := map[string]interface{}{
+		"command": "account_tx",
+		"account": address,
+		"limit":   limit,
+		"binary":  false,
+	}
+
+	resp, err := c.sendRequest(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("get account transactions: %w", err)
+	}
+
+	if resp.Status != "success" {
+		return nil, fmt.Errorf("%w: %s", ErrRequestFailed, resp.Error)
+	}
+
+	// Extract transactions array
+	txsArray, ok := resp.Result["transactions"].([]interface{})
+	if !ok {
+		return []Transaction{}, nil
+	}
+
+	transactions := make([]Transaction, 0, len(txsArray))
+	for _, txItem := range txsArray {
+		txMap, ok := txItem.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		// Extract tx object
+		txData, ok := txMap["tx"].(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		tx := Transaction{}
+		if hash, ok := txData["hash"].(string); ok {
+			tx.Hash = hash
+		}
+		if txType, ok := txData["TransactionType"].(string); ok {
+			tx.TransactionType = txType
+		}
+		if account, ok := txData["Account"].(string); ok {
+			tx.Account = account
+		}
+		if dest, ok := txData["Destination"].(string); ok {
+			tx.Destination = dest
+		}
+		if amount := txData["Amount"]; amount != nil {
+			tx.Amount = amount
+		}
+		if fee, ok := txData["Fee"].(string); ok {
+			tx.Fee = fee
+		}
+		if date, ok := txData["date"].(float64); ok {
+			tx.Date = int64(date)
+		}
+
+		// Get validated status from meta
+		if validated, ok := txMap["validated"].(bool); ok {
+			tx.Validated = validated
+		}
+
+		transactions = append(transactions, tx)
+	}
+
+	return transactions, nil
+}
+
+// SubscribeToAccount subscribes to transaction streams for an account.
+// Returns a channel that will receive StreamMessage for transactions involving this account.
+// The caller must call Unsubscribe to close the channel and clean up resources.
+func (c *Client) SubscribeToAccount(ctx context.Context, address string) (<-chan StreamMessage, error) {
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+
+	// Basic address validation
+	if len(address) == 0 || address[0] != 'r' {
+		return nil, ErrInvalidAddress
+	}
+
+	// Create channel for streaming messages
+	streamChan := make(chan StreamMessage, 100)
+
+	// Register stream channel
+	c.streamsMu.Lock()
+	c.streams[address] = streamChan
+	c.streamsMu.Unlock()
+
+	// Send subscribe request
+	req := map[string]interface{}{
+		"command":  "subscribe",
+		"accounts": []string{address},
+	}
+
+	resp, err := c.sendRequest(ctx, req)
+	if err != nil {
+		// Clean up on error
+		c.streamsMu.Lock()
+		delete(c.streams, address)
+		c.streamsMu.Unlock()
+		close(streamChan)
+		return nil, fmt.Errorf("subscribe: %w", err)
+	}
+
+	if resp.Status != "success" {
+		// Clean up on error
+		c.streamsMu.Lock()
+		delete(c.streams, address)
+		c.streamsMu.Unlock()
+		close(streamChan)
+		return nil, fmt.Errorf("%w: %s", ErrRequestFailed, resp.Error)
+	}
+
+	if c.logger != nil {
+		c.logger.Info("subscribed to account", "address", address)
+	}
+
+	return streamChan, nil
+}
+
+// Unsubscribe unsubscribes from transaction streams for an account.
+// Closes the channel returned by SubscribeToAccount.
+func (c *Client) Unsubscribe(ctx context.Context, address string) error {
+	if !c.IsConnected() {
+		return ErrNotConnected
+	}
+
+	// Send unsubscribe request
+	req := map[string]interface{}{
+		"command":  "unsubscribe",
+		"accounts": []string{address},
+	}
+
+	resp, err := c.sendRequest(ctx, req)
+	if err != nil {
+		return fmt.Errorf("unsubscribe: %w", err)
+	}
+
+	if resp.Status != "success" {
+		return fmt.Errorf("%w: %s", ErrRequestFailed, resp.Error)
+	}
+
+	// Clean up stream channel
+	c.streamsMu.Lock()
+	if ch, ok := c.streams[address]; ok {
+		close(ch)
+		delete(c.streams, address)
+	}
+	c.streamsMu.Unlock()
+
+	if c.logger != nil {
+		c.logger.Info("unsubscribed from account", "address", address)
+	}
+
+	return nil
+}
+
+// sendRequest sends a request and waits for the response
+func (c *Client) sendRequest(ctx context.Context, req map[string]interface{}) (*Response, error) {
+	c.mu.Lock()
+
+	// Assign unique ID to request
+	c.nextID++
+	id := c.nextID
+	req["id"] = id
+
+	// Create response channel
+	respChan := make(chan Response, 1)
+	c.responses[id] = respChan
+
+	c.mu.Unlock()
+
+	// Clean up on exit
+	defer func() {
+		c.mu.Lock()
+		delete(c.responses, id)
+		c.mu.Unlock()
+	}()
+
+	// Send request (protect WebSocket writes with separate mutex)
+	c.mu.RLock()
+	conn := c.conn
+	c.mu.RUnlock()
+
+	if conn == nil {
+		return nil, ErrNotConnected
+	}
+
+	// Serialize WebSocket writes
+	c.writeMu.Lock()
+	err := conn.WriteJSON(req)
+	c.writeMu.Unlock()
+
+	if err != nil {
+		return nil, fmt.Errorf("send request: %w", err)
+	}
+
+	// Wait for response with configured timeout
+	timer := time.NewTimer(c.timeout)
+	defer timer.Stop()
+
+	select {
+	case resp := <-respChan:
+		return &resp, nil
+	case <-timer.C:
+		return nil, ErrTimeout
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case <-c.done:
+		return nil, ErrConnectionClosed
+	}
+}
+
+// readLoop continuously reads messages from the WebSocket
+func (c *Client) readLoop() {
+	defer func() {
+		// Recover from any panics
+		if r := recover(); r != nil {
+			if c.logger != nil {
+				c.logger.Error("panic in readLoop", "panic", r)
+			}
+		}
+	}()
+
+	for {
+		// Check if we should exit
+		c.mu.RLock()
+		conn := c.conn
+		done := c.done
+		c.mu.RUnlock()
+
+		if conn == nil {
+			return
+		}
+
+		select {
+		case <-done:
+			return
+		default:
+			// Read raw message
+			var rawMsg map[string]interface{}
+			if err := conn.ReadJSON(&rawMsg); err != nil {
+				// Connection closed or error
+				if c.logger != nil {
+					c.logger.Debug("readLoop error", "error", err)
+				}
+				return
+			}
+
+			// Check if it's a regular response or stream message
+			if msgType, ok := rawMsg["type"].(string); ok && msgType == "transaction" {
+				// Handle streaming transaction
+				c.handleStreamMessage(rawMsg)
+			} else if id, ok := rawMsg["id"].(float64); ok {
+				// Handle regular response
+				resp := Response{
+					ID:     int(id),
+					Status: getStringField(rawMsg, "status"),
+					Type:   getStringField(rawMsg, "type"),
+					Error:  getStringField(rawMsg, "error"),
+				}
+				if result, ok := rawMsg["result"].(map[string]interface{}); ok {
+					resp.Result = result
+				}
+
+				c.mu.RLock()
+				if ch, ok := c.responses[resp.ID]; ok {
+					select {
+					case ch <- resp:
+					default:
+					}
+				}
+				c.mu.RUnlock()
+			}
+		}
+	}
+}
+
+// handleStreamMessage processes streaming messages from subscriptions
+func (c *Client) handleStreamMessage(rawMsg map[string]interface{}) {
+	msg := StreamMessage{
+		Type:                getStringField(rawMsg, "type"),
+		Validated:           getBoolField(rawMsg, "validated"),
+		Status:              getStringField(rawMsg, "status"),
+		EngineResult:        getStringField(rawMsg, "engine_result"),
+		EngineResultMessage: getStringField(rawMsg, "engine_result_message"),
+	}
+
+	// Extract transaction details if present
+	if txData, ok := rawMsg["transaction"].(map[string]interface{}); ok {
+		tx := &Transaction{
+			Hash:            getStringField(txData, "hash"),
+			TransactionType: getStringField(txData, "TransactionType"),
+			Account:         getStringField(txData, "Account"),
+			Destination:     getStringField(txData, "Destination"),
+			Fee:             getStringField(txData, "Fee"),
+		}
+		if amount := txData["Amount"]; amount != nil {
+			tx.Amount = amount
+		}
+		if date, ok := txData["date"].(float64); ok {
+			tx.Date = int64(date)
+		}
+		if seq, ok := txData["Sequence"].(float64); ok {
+			tx.Sequence = int64(seq)
+		}
+		tx.Validated = msg.Validated
+		msg.Transaction = tx
+	}
+
+	// Route to subscription channels based on account
+	if msg.Transaction != nil {
+		account := msg.Transaction.Account
+		c.streamsMu.RLock()
+		if ch, ok := c.streams[account]; ok {
+			select {
+			case ch <- msg:
+			default:
+				// Channel full, drop message
+				if c.logger != nil {
+					c.logger.Warn("stream channel full, dropping message", "account", account)
+				}
+			}
+		}
+		c.streamsMu.RUnlock()
+	}
+}
+
+// Helper functions to extract fields from raw messages
+func getStringField(m map[string]interface{}, key string) string {
+	if v, ok := m[key].(string); ok {
+		return v
+	}
+	return ""
+}
+
+func getBoolField(m map[string]interface{}, key string) bool {
+	if v, ok := m[key].(bool); ok {
+		return v
+	}
+	return false
+}
