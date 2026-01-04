@@ -1,0 +1,112 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Start Dev Environment",
+      "type": "shell",
+      "command": "docker compose --profile dev up",
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^(.*)$",
+          "file": 1,
+          "location": 2,
+          "message": 3
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^.*Container.*Starting.*$",
+          "endsPattern": "^.*started.*$"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new",
+        "focus": false
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "Start Dev Environment (Detached)",
+      "type": "shell",
+      "command": "docker compose --profile dev up -d",
+      "problemMatcher": []
+    },
+    {
+      "label": "Stop Dev Environment",
+      "type": "shell",
+      "command": "docker compose --profile dev down",
+      "problemMatcher": []
+    },
+    {
+      "label": "Start Release Environment",
+      "type": "shell",
+      "command": "docker compose --profile release up",
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^(.*)$",
+          "file": 1,
+          "location": 2,
+          "message": 3
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^.*Container.*Starting.*$",
+          "endsPattern": "^.*started.*$"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "Start Release Environment (Detached)",
+      "type": "shell",
+      "command": "docker compose --profile release up -d",
+      "problemMatcher": []
+    },
+    {
+      "label": "Stop Release Environment",
+      "type": "shell",
+      "command": "docker compose --profile release down",
+      "problemMatcher": []
+    },
+    {
+      "label": "Rebuild Dev Container",
+      "type": "shell",
+      "command": "docker compose --profile dev build --no-cache dev",
+      "problemMatcher": []
+    },
+    {
+      "label": "Rebuild Release Container",
+      "type": "shell",
+      "command": "docker compose --profile release build --no-cache release",
+      "problemMatcher": []
+    },
+    {
+      "label": "View Dev Logs",
+      "type": "shell",
+      "command": "docker compose --profile dev logs -f dev",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "View All Logs",
+      "type": "shell",
+      "command": "docker compose --profile dev --profile release logs -f",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Clean Docker Resources",
+      "type": "shell",
+      "command": "docker compose --profile dev --profile release down -v && docker system prune -f",
+      "problemMatcher": []
+    }
+  ]
+}

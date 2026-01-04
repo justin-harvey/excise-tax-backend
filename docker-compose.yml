@@ -1,0 +1,116 @@
+version: '3.9'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: excise-tax-postgres
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-excise_tax_db}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=en_US.UTF-8"
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+    networks:
+      - excise-tax-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-excise_tax_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # Development service (hot reload)
+  dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: excise-tax-dev
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - APP_ENV=development
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=${SERVER_PORT:-8080}
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=${POSTGRES_USER:-postgres}
+      - DB_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_NAME=${POSTGRES_DB:-excise_tax_db}
+      - DB_SSLMODE=disable
+      - LOG_LEVEL=${LOG_LEVEL:-debug}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_ACCESS_TOKEN_DURATION=${JWT_ACCESS_TOKEN_DURATION:-1h}
+      - JWT_REFRESH_TOKEN_DURATION=${JWT_REFRESH_TOKEN_DURATION:-168h}
+    ports:
+      - "${SERVER_PORT:-8080}:8080"
+    volumes:
+      - .:/app
+      - go-mod-cache:/go/pkg/mod
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - excise-tax-network
+    profiles:
+      - dev
+
+  # Production release service
+  release:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: excise-tax-release
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - APP_ENV=${APP_ENV:-production}
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=${SERVER_PORT:-8080}
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=${POSTGRES_USER:-postgres}
+      - DB_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_NAME=${POSTGRES_DB:-excise_tax_db}
+      - DB_SSLMODE=disable
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET must be set in .env}
+      - JWT_ACCESS_TOKEN_DURATION=${JWT_ACCESS_TOKEN_DURATION:-1h}
+      - JWT_REFRESH_TOKEN_DURATION=${JWT_REFRESH_TOKEN_DURATION:-168h}
+    ports:
+      - "${SERVER_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - excise-tax-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    profiles:
+      - release
+
+networks:
+  excise-tax-network:
+    name: excise-tax-network
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+volumes:
+  postgres_data:
+    name: excise-tax-postgres-data
+  go-mod-cache:
+    name: excise-tax-go-mod-cache

@@ -1,193 +1,432 @@
-# Excise Tax Payment Platform
+# Excise Tax Portal - Go Backend
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Go Version](https://img.shields.io/badge/Go-1.21%2B-blue)](https://golang.org/dl/)
-[![Docker](https://img.shields.io/badge/Docker-24.0%2B-blue)](https://www.docker.com/)
-[![XRPL](https://img.shields.io/badge/XRPL-Blockchain-green)](https://xrpl.org/)
-[![Security](https://img.shields.io/badge/Security-Audited-green)](SECURITY_FIXES_APPLIED.md)
+A scalable microservices-based backend for the Excise Tax Portal, built with Go 1.21+ and designed for high-performance tax payment processing with XRPL blockchain integration.
 
-> **Blockchain-enabled excise tax collection platform designed to dramatically reduce processing costs and enable near-instant settlement for government agencies.**
+## Architecture Overview
 
----
+The backend is organized as a microservices architecture with the following services:
 
-## Overview
+- **API Gateway** (Port 8080): Routes requests, handles authentication, rate limiting, and CORS
+- **Payment Service** (Port 8081): Processes payments via XRPL blockchain
+- **Tax Service** (Port 8082): Tax calculation and validation logic
+- **Reporting Service** (Port 8083): Generates tax reports and analytics
+- **Notification Service** (Port 8084): Sends email and SMS notifications
+- **Auth Service** (Port 8085): User authentication and authorization (JWT, OAuth)
 
-The Excise Tax Payment Platform is a complete, full-stack system for government excise tax collection, featuring:
+## Project Structure
 
-* **Frontend Portal** – Production web application for manufacturers, distributors, and government administrators
+```
+backend/
+├── cmd/                        # Entry points for each service
+│   ├── api-gateway/
+│   ├── payment-service/
+│   ├── tax-service/
+│   ├── reporting-service/
+│   ├── notification-service/
+│   └── auth-service/
+├── internal/                   # Private application code
+│   ├── api-gateway/           # Gateway handlers, middleware, routing
+│   ├── payment/               # Payment service with XRPL integration
+│   ├── tax/                   # Tax calculation logic
+│   ├── reporting/             # Report generation
+│   ├── notification/          # Email/SMS service
+│   └── auth/                  # Authentication logic
+├── pkg/                       # Shared packages
+│   ├── database/              # PostgreSQL connection pool
+│   ├── cache/                 # Redis client
+│   ├── queue/                 # RabbitMQ client
+│   ├── storage/               # S3/MinIO client
+│   ├── logger/                # Structured logging
+│   ├── config/                # Configuration management
+│   ├── errors/                # Custom error types
+│   ├── validator/             # Request validation
+│   └── utils/                 # Helper functions
+├── migrations/                # Database migrations
+├── configs/                   # Configuration files
+├── scripts/                   # Utility scripts
+├── tests/                     # Integration and E2E tests
+├── docs/                      # API documentation
+├── go.mod                     # Go module definition
+├── Makefile                   # Build automation
+└── .env.example              # Environment variables template
+```
 
-  * Live at: [https://github.com/G00DTECH/Excise-Tax-Payment-Platform](https://github.com/G00DTECH/Excise-Tax-Payment-Platform)
-  * Company registration and secure authentication
-  * Payment processing (ACH, Credit Card, Wire Transfer)
-  * Manufacturing report submissions (13 LCC report types)
-  * Administrative review and approval workflows
-  * Payment history and tax calculators
+## Prerequisites
 
-* **Backend Infrastructure (this repository)** – A production-ready, cloud-native microservices system integrating XRP Ledger (XRPL) settlement to materially reduce payment processing costs while providing 3–5 second settlement times versus traditional monthly or multi-week batch processes
-
----
-
-## Alignment with the Federal Digital Payments Executive Order
-
-This platform is designed to directly support and operationalize recent federal executive guidance on digital payment modernization, including mandates to:
-
-* Expand acceptance of digital wallets and modern payment methods
-* Reduce reliance on paper checks and legacy batch ACH processes
-* Improve settlement speed, transparency, and reconciliation
-* Increase resilience, auditability, and security of government payment systems
-
-### Patent Utility in This Context
-
-The underlying patent associated with this platform covers a set of optimizations for government payment processing that enable:
-
-* Real-time or near-real-time settlement without changing existing taxpayer-facing workflows
-* Cost-competitive processing by aggregating transaction volume, optimizing internal payment flows, and accessing institutional pricing
-* Compatibility with digital assets, tokenized dollars, and blockchain settlement layers while preserving compliance with existing treasury and accounting requirements
-* Incremental modernization, allowing agencies to meet executive order requirements without full system replacement
-
-In practical terms, the patent allows government agencies and payment partners to layer modern digital settlement rails (including blockchain and regulated digital dollars) beneath existing portals and accounting systems, accelerating compliance with federal digital payments policy while minimizing operational disruption.
-
----
-
-## Key Features
-
-* XRPL-based settlement for low-cost, near-instant payments
-* Government-grade security including JWT authentication, role-based access control, and full audit trails
-* High-throughput microservices architecture capable of handling 1,000+ transactions per second
-* Real-time monitoring via Prometheus and Grafana
-* Multi-source XRP/USD price oracle with aggregated exchange data
-* Mobile-friendly payment flows including QR-based wallet payments
-* White-label architecture suitable for reuse across states and jurisdictions
-* Enterprise-scale deployment with Kubernetes readiness
-
----
-
-## Business Impact
-
-| Metric             | Traditional Systems                   | Platform Architecture | Improvement                |
-| ------------------ | ------------------------------------- | --------------------- | -------------------------- |
-| Processing Cost    | $3–4B annually                        | ~$4M annually         | ~99.9% reduction           |
-| Settlement Time    | 30+ days                              | 3–5 seconds           | Orders of magnitude faster |
-| Transaction Fee    | $15–$280                              | ~$0.0003              | Materially lower           |
-| Addressable Market | $250–300B annual US excise tax volume | —                     | —                          |
-
-Projected annual savings scale with transaction volume and jurisdiction adoption.
-
----
-
-## System Components
-
-This repository contains the backend infrastructure that powers the Excise Tax Payment Platform.
-
-### Frontend (Separate Repository)
-
-* Repository: [https://github.com/G00DTECH/Excise-Tax-Payment-Platform](https://github.com/G00DTECH/Excise-Tax-Payment-Platform)
-* Technology: HTML5, JavaScript, responsive web design
-* Features include taxpayer portals, administrative review tools, payment interfaces, report submission, calculators, and status tracking
-
-### Backend (This Repository)
-
-* Technology: Go microservices, PostgreSQL, Redis, RabbitMQ, XRPL
-* Features:
-
-  * RESTful API gateway for frontend integration
-  * Blockchain-backed payment settlement
-  * Authentication and authorization services
-  * Tax calculation and validation engines
-  * Reporting, analytics, and notification services
-
-### High-Level Flow
-
-Frontend clients communicate with the backend via JSON-based REST APIs over HTTPS. The API gateway routes requests to dedicated payment, tax, and reporting services, which interact with databases, message queues, monitoring tools, and the XRPL settlement layer.
-
----
-
-## Backend Architecture
-
-The backend follows a microservices architecture with an API gateway, dedicated domain services, and shared infrastructure services. It is containerized using Docker and designed for horizontal scaling via Kubernetes.
-
-### Technology Stack
-
-**Backend**
-
-* Go 1.21+
-* Gin (HTTP framework)
-* GORM (ORM)
-* PostgreSQL 15
-* Redis 7
-* RabbitMQ 3.12
-* XRP Ledger (XRPL)
-
-**Infrastructure**
-
-* Docker and Docker Compose
-* Kubernetes (deployment-ready)
-* Prometheus and Grafana for monitoring
-* GitHub Actions for CI/CD
-* Multi-cloud compatibility (AWS, GCP, Azure)
-
----
+- **Go 1.21+**: [Install Go](https://golang.org/doc/install)
+- **PostgreSQL 14+**: For data persistence
+- **Redis 7+**: For caching and sessions
+- **RabbitMQ 3.12+** (optional): For async messaging
+- **MinIO/S3** (optional): For report storage
+- **golang-migrate**: For database migrations
+- **golangci-lint**: For code linting
 
 ## Quick Start
 
-### Prerequisites
-
-* Docker Desktop 24.0+
-* Go 1.21+
-* 8 GB RAM minimum (16 GB recommended)
-
-### Security Setup (Required)
-
-Before starting services, configure strong passwords for all infrastructure components.
-
-1. Copy the environment template:
-
-   ```bash
-   cd infrastructure/docker
-   cp .env.docker.example .env.docker
-   ```
-
-2. Generate four strong passwords and update the following values:
-
-   * POSTGRES_PASSWORD
-   * REDIS_PASSWORD
-   * RABBITMQ_PASSWORD
-   * GRAFANA_ADMIN_PASSWORD
-
-Do not commit `.env.docker` to version control.
-
-### Installation
+### 1. Clone and Setup
 
 ```bash
-# Clone repository
-git clone https://github.com/YOUR_USERNAME/excise-tax-portal.git
-cd excise-tax-portal
+cd backend
 
-# Start infrastructure
-docker compose up -d
+# Copy environment variables
+cp .env.example .env
 
-# Run migrations and services
-make build
-make run-all
+# Edit .env with your configuration
+# Set database credentials, JWT secret, etc.
 ```
 
----
+### 2. Install Dependencies
 
-## Documentation
+```bash
+# Download Go dependencies
+go mod download
 
-* Security fixes and audit notes: SECURITY_FIXES_APPLIED.md
-* Startup and deployment guides
-* Backend architecture and file structure documentation
-* REST API specifications
+# Install development tools
+make install-tools
+```
 
-Frontend documentation is maintained in the separate frontend repository.
+### 3. Setup Database
 
----
+```bash
+# Create database and run migrations
+make db-create
+make migrate-up
+
+# Or use the combined command
+make db-setup
+```
+
+### 4. Run Services
+
+Option A: Run individual services in separate terminals:
+
+```bash
+# Terminal 1 - API Gateway
+make run-api-gateway
+
+# Terminal 2 - Payment Service
+make run-payment
+
+# Terminal 3 - Tax Service
+make run-tax
+
+# Terminal 4 - Reporting Service
+make run-reporting
+
+# Terminal 5 - Notification Service
+make run-notification
+
+# Terminal 6 - Auth Service
+make run-auth
+```
+
+Option B: Use Docker Compose:
+
+```bash
+make docker-up
+```
+
+### 5. Verify Services
+
+```bash
+# Check API Gateway health
+curl http://localhost:8080/health
+
+# Check all services status
+make docker-ps
+```
+
+## Development Workflow
+
+### Building
+
+```bash
+# Build all services
+make build
+
+# Build specific service
+make build-api-gateway
+make build-payment
+# etc.
+```
+
+### Testing
+
+```bash
+# Run all tests
+make test
+
+# Run with coverage
+make test-coverage
+
+# Run integration tests
+make test-integration
+
+# Run e2e tests
+make test-e2e
+```
+
+### Code Quality
+
+```bash
+# Format code
+make fmt
+
+# Run linter
+make lint
+
+# Run both
+make pre-commit
+```
+
+### Database Migrations
+
+```bash
+# Create new migration
+make migrate-create name=add_users_table
+
+# Apply migrations
+make migrate-up
+
+# Rollback last migration
+make migrate-down
+
+# Check migration status
+make migrate-version
+
+# Reset database (careful!)
+make db-reset
+```
+
+## Configuration
+
+Configuration can be provided via:
+
+1. **YAML files** in `configs/` directory
+2. **Environment variables** (prefixed with `APP_`)
+3. **.env file** for local development
+
+### Key Configuration Sections
+
+#### Server
+- `SERVER_HOST`: Server bind address (default: 0.0.0.0)
+- `SERVER_PORT`: Server port (default: 8080)
+- `ENV`: Environment (development/staging/production)
+
+#### Database
+- `DATABASE_HOST`: PostgreSQL host
+- `DATABASE_PORT`: PostgreSQL port (default: 5432)
+- `DATABASE_USER`: Database user
+- `DATABASE_PASSWORD`: Database password
+- `DATABASE_NAME`: Database name
+
+#### Redis
+- `REDIS_HOST`: Redis host
+- `REDIS_PORT`: Redis port (default: 6379)
+- `REDIS_PASSWORD`: Redis password (optional)
+
+#### XRPL
+- `XRPL_NETWORK_URL`: XRPL network WebSocket URL
+- `XRPL_WALLET_ADDRESS`: XRPL wallet address
+- `XRPL_WALLET_SEED`: XRPL wallet seed (KEEP SECRET!)
+- `XRPL_IS_TESTNET`: Use testnet (true/false)
+
+## API Documentation
+
+### API Gateway Endpoints
+
+- `GET /health` - Health check
+- `GET /health/liveness` - Liveness probe
+- `GET /health/readiness` - Readiness probe
+- `GET /metrics` - Prometheus metrics
+
+### Authentication Endpoints
+
+- `POST /api/v1/auth/register` - Register new user
+- `POST /api/v1/auth/login` - Login
+- `POST /api/v1/auth/refresh` - Refresh access token
+- `POST /api/v1/auth/logout` - Logout
+- `POST /api/v1/auth/forgot-password` - Request password reset
+- `POST /api/v1/auth/reset-password` - Reset password
+
+### Payment Endpoints
+
+- `POST /api/v1/payments` - Create payment
+- `GET /api/v1/payments/:id` - Get payment details
+- `GET /api/v1/payments` - List payments
+- `POST /api/v1/payments/:id/confirm` - Confirm payment
+
+### Tax Endpoints
+
+- `POST /api/v1/tax/calculate` - Calculate tax
+- `GET /api/v1/tax/rates` - Get tax rates
+- `POST /api/v1/tax/reports` - Submit tax report
+- `GET /api/v1/tax/reports/:id` - Get report details
+
+For detailed API documentation, see [docs/swagger.yaml](docs/swagger.yaml)
+
+## Docker Deployment
+
+### Build Images
+
+```bash
+make docker-build
+```
+
+### Run with Docker Compose
+
+```bash
+# Start all services
+make docker-up
+
+# View logs
+make docker-logs
+
+# Stop services
+make docker-down
+```
+
+## Production Deployment
+
+### Prerequisites
+- Kubernetes cluster or Docker Swarm
+- PostgreSQL cluster (managed or self-hosted)
+- Redis cluster
+- Load balancer (NGINX, HAProxy, or cloud LB)
+
+### Deployment Steps
+
+1. **Build production images**
+```bash
+make docker-build
+```
+
+2. **Push to container registry**
+```bash
+docker tag excise-tax/api-gateway your-registry/excise-tax/api-gateway:v1.0.0
+docker push your-registry/excise-tax/api-gateway:v1.0.0
+# Repeat for other services
+```
+
+3. **Deploy to Kubernetes**
+```bash
+kubectl apply -f infrastructure/kubernetes/
+```
+
+4. **Configure monitoring**
+- Setup Prometheus for metrics
+- Configure Grafana dashboards
+- Setup alerts for critical errors
+
+## Security Considerations
+
+1. **Secrets Management**
+   - Never commit `.env` files
+   - Use secrets manager (AWS Secrets Manager, HashiCorp Vault)
+   - Rotate JWT secrets regularly
+
+2. **XRPL Wallet Security**
+   - Store wallet seeds in encrypted secrets
+   - Use hardware security modules (HSM) in production
+   - Implement multi-signature wallets for large transactions
+
+3. **Database Security**
+   - Use strong passwords
+   - Enable SSL/TLS connections
+   - Implement row-level security
+   - Regular backups and disaster recovery plan
+
+4. **API Security**
+   - Rate limiting enabled by default
+   - CORS properly configured
+   - Input validation on all endpoints
+   - SQL injection prevention via parameterized queries
+
+## Monitoring and Observability
+
+### Health Checks
+All services expose:
+- `/health` - Overall health
+- `/health/liveness` - Kubernetes liveness probe
+- `/health/readiness` - Kubernetes readiness probe
+
+### Metrics
+Prometheus metrics available at `/metrics`:
+- HTTP request duration
+- Request count by endpoint
+- Error rates
+- Database connection pool stats
+- Redis cache hit/miss rates
+
+### Logging
+Structured JSON logging with:
+- Request ID tracking
+- User ID context
+- Trace ID for distributed tracing
+- Error stack traces
+
+## Performance Optimization
+
+- **Connection Pooling**: Configured for PostgreSQL and Redis
+- **Caching Strategy**: Multi-level caching (Redis + in-memory)
+- **Database Indexing**: Optimized indexes on frequent queries
+- **Horizontal Scaling**: Stateless services support multiple replicas
+- **XRPL Integration**: Async payment processing with webhooks
+
+## Troubleshooting
+
+### Common Issues
+
+**Database connection failed**
+```bash
+# Check database is running
+make db-console
+
+# Verify DATABASE_URL in .env
+echo $DATABASE_URL
+```
+
+**Redis connection failed**
+```bash
+# Test Redis connection
+redis-cli ping
+
+# Check REDIS_HOST and REDIS_PORT
+```
+
+**Migration errors**
+```bash
+# Check migration version
+make migrate-version
+
+# Force to specific version
+make migrate-force version=1
+```
+
+**Build errors**
+```bash
+# Clear Go cache
+go clean -cache -modcache
+
+# Re-download dependencies
+go mod download
+```
+
+## Contributing
+
+1. Follow Go coding standards and conventions
+2. Write tests for new features
+3. Run `make pre-commit` before committing
+4. Update documentation for API changes
+5. Follow semantic versioning for releases
 
 ## License
 
-This project is licensed under the MIT License. See the LICENSE file for details.
+Copyright (c) 2024 State Government. All rights reserved.
 
----
+## Support
 
-Built to support modern, secure, and policy-aligned government payment infrastructure.
+For questions or issues:
+- Technical Documentation: [docs/](docs/)
+- API Reference: [docs/swagger.yaml](docs/swagger.yaml)
+- Architecture Guide: [BACKEND_INFRASTRUCTURE_SPEC.md](BACKEND_INFRASTRUCTURE_SPEC.md)
