@@ -24,8 +24,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/maxfelker/excise-tax-backend/v2/internal/tax"
 	"github.com/maxfelker/excise-tax-backend/v2/pkg/logger"
+	"github.com/maxfelker/excise-tax-backend/v2/pkg/tax"
 )
 
 const (
@@ -87,24 +87,28 @@ func main() {
 
 	ctx := context.Background()
 
-	// Load tax rates
-	var rates []tax.TaxRate
+	// Create calculator with appropriate options
+	var calc *tax.Calculator
 	var err error
 
 	if *ratesFile != "" {
 		log.Debug("loading rates from file", "file", *ratesFile)
-		rates, err = tax.LoadRatesFromJSON(*ratesFile)
+		calc, err = tax.New(
+			tax.WithRatesFromFile(*ratesFile),
+			tax.WithLogger(log),
+		)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: failed to load rates: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Error: failed to create calculator: %v\n", err)
 			os.Exit(exitError)
 		}
 	} else {
 		log.Debug("using default federal rates")
-		rates = tax.DefaultFederalRates()
+		calc, err = tax.New(tax.WithLogger(log))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: failed to create calculator: %v\n", err)
+			os.Exit(exitError)
+		}
 	}
-
-	// Create calculator
-	calc := tax.NewCalculator(rates, tax.WithLogger(log))
 
 	// Parse effective date
 	var date time.Time
@@ -130,7 +134,7 @@ func main() {
 		exitCode := rateCommand(calc, date, fs.Args(), *jsonOutput, *jurisdiction, log)
 		os.Exit(exitCode)
 	case "validate":
-		exitCode := validateCommand(fs.Args(), *jsonOutput, log)
+		exitCode := validateCommand(calc, fs.Args(), *jsonOutput, log)
 		os.Exit(exitCode)
 	default:
 		fmt.Fprintf(os.Stderr, "Error: unknown command: %s\n\n", command)
@@ -260,7 +264,7 @@ func rateCommand(calc *tax.Calculator, date time.Time, args []string, jsonOutput
 	return exitSuccess
 }
 
-func validateCommand(args []string, jsonOutput bool, log *slog.Logger) int {
+func validateCommand(calc *tax.Calculator, args []string, jsonOutput bool, log *slog.Logger) int {
 	if len(args) < 1 {
 		fmt.Fprintf(os.Stderr, "Error: validate command requires a file argument or '-' for stdin\n")
 		fmt.Fprintf(os.Stderr, "Usage: tax-cli validate <file>\n")
@@ -297,7 +301,7 @@ func validateCommand(args []string, jsonOutput bool, log *slog.Logger) int {
 	}
 
 	// Validate data
-	errors := validateProductionData(&productionData)
+	errors := calc.ValidateProductionData(&productionData)
 
 	if len(errors) == 0 {
 		if jsonOutput {
@@ -324,87 +328,6 @@ func validateCommand(args []string, jsonOutput bool, log *slog.Logger) int {
 	}
 
 	return exitValidationError
-}
-
-func validateProductionData(data *tax.ProductionData) []tax.ValidationError {
-	var errors []tax.ValidationError
-
-	if len(data.Items) == 0 {
-		errors = append(errors, tax.ValidationError{
-			Field:   "items",
-			Message: "at least one production item is required",
-		})
-		return errors
-	}
-
-	for i, item := range data.Items {
-		prefix := fmt.Sprintf("items[%d]", i)
-
-		if item.ProductName == "" {
-			errors = append(errors, tax.ValidationError{
-				Field:   prefix + ".product_name",
-				Message: "product name is required",
-			})
-		}
-
-		if item.ProductType == "" {
-			errors = append(errors, tax.ValidationError{
-				Field:   prefix + ".product_type",
-				Message: "product type is required",
-			})
-		} else if !isValidProductType(item.ProductType) {
-			errors = append(errors, tax.ValidationError{
-				Field:   prefix + ".product_type",
-				Message: fmt.Sprintf("invalid product type: %s", item.ProductType),
-			})
-		}
-
-		if item.UnitType == "" {
-			errors = append(errors, tax.ValidationError{
-				Field:   prefix + ".unit_type",
-				Message: "unit type is required",
-			})
-		} else if !isValidUnitType(item.UnitType) {
-			errors = append(errors, tax.ValidationError{
-				Field:   prefix + ".unit_type",
-				Message: fmt.Sprintf("invalid unit type: %s", item.UnitType),
-			})
-		}
-
-		if item.Quantity <= 0 {
-			errors = append(errors, tax.ValidationError{
-				Field:   prefix + ".quantity",
-				Message: "quantity must be greater than zero",
-			})
-		}
-
-		if item.ABV < 0 || item.ABV > 100 {
-			errors = append(errors, tax.ValidationError{
-				Field:   prefix + ".abv",
-				Message: "ABV must be between 0 and 100",
-			})
-		}
-	}
-
-	return errors
-}
-
-func isValidProductType(pt tax.ProductType) bool {
-	switch pt {
-	case tax.ProductTypeBeer, tax.ProductTypeWine, tax.ProductTypeSpirits, tax.ProductTypeOther:
-		return true
-	default:
-		return false
-	}
-}
-
-func isValidUnitType(ut tax.UnitType) bool {
-	switch ut {
-	case tax.UnitTypeGallon, tax.UnitTypeBarrel, tax.UnitTypeCase, tax.UnitTypeLiter:
-		return true
-	default:
-		return false
-	}
 }
 
 func printCalculationResult(result *tax.TaxCalculation) {

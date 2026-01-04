@@ -1,10 +1,10 @@
 # V2 Platform - Excise Tax Backend
 
-Lightweight XRPL client and services following Unix philosophy.
+Lightweight XRPL client and tax calculation services following Unix philosophy and microservice patterns.
 
-## Quick Start
+## 🚀 Quick Start
 
-### CLI Tool
+### XRPL CLI Tool
 
 ```bash
 cd v2
@@ -20,11 +20,118 @@ go build -o xrpl-cli ./cmd/xrpl-cli
 # Get transaction details
 ./xrpl-cli tx C71F385124008A436842B56DEF8196B0621762FBD9464F2510EE9C3D1A3322DA
 
-# Get transaction history
-./xrpl-cli history rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY 10
+# Subscribe to real-time transactions
+./xrpl-cli subscribe rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY
 
-# Use mainnet
-./xrpl-cli -network mainnet balance rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY
+# Use mainnet with JSON output
+./xrpl-cli -network mainnet -json balance rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY
+```
+
+### Tax CLI Tool
+
+```bash
+# Build tax calculator CLI
+go build -o tax-cli ./cmd/tax-cli
+
+# Calculate taxes from production data
+./tax-cli calculate cmd/tax-cli/example_production.json
+
+# List all available tax rates
+./tax-cli rates
+
+# Get specific tax rate
+./tax-cli rate beer barrel
+
+# Validate production data
+./tax-cli validate cmd/tax-cli/example_production.json
+
+# Use JSON output for scripting
+./tax-cli calculate production.json --json
+./tax-cli rates --json
+```
+
+## 📚 Reusable Libraries
+
+### XRPL Library (`pkg/xrpl`)
+
+WebSocket client library for XRPL interaction with clean functional options API:
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "log"
+
+    "github.com/maxfelker/excise-tax-backend/v2/pkg/xrpl"
+)
+
+func main() {
+    // Create client with options
+    client := xrpl.New("wss://s1.ripple.com", 
+        xrpl.WithTimeout(10*time.Second),
+        xrpl.WithLogger(slog.Default()),
+    )
+    
+    // Connect and query
+    if err := client.Connect(context.Background()); err != nil {
+        log.Fatal(err)
+    }
+    defer client.Close()
+    
+    account, err := client.GetAccountInfo(ctx, "rN7n7otQDd6FczFgLdSqtcsAUxDkw6fzRH")
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    fmt.Printf("Balance: %s XRP\n", account.Balance)
+}
+```
+
+### Tax Library (`pkg/tax`)
+
+Excise tax calculation library for alcoholic beverages:
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "log"
+
+    "github.com/maxfelker/excise-tax-backend/v2/pkg/tax"
+)
+
+func main() {
+    // Create calculator with default federal rates
+    calc, err := tax.New()
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    // Production data
+    data := &tax.ProductionData{
+        Items: []tax.ProductionItem{
+            {
+                ProductType: tax.ProductTypeBeer,
+                ProductName: "IPA",
+                UnitType:    tax.UnitTypeBarrel,
+                Quantity:    100,
+                ABV:         6.5,
+            },
+        },
+    }
+
+    // Calculate taxes
+    result, err := calc.Calculate(context.Background(), data, "federal", time.Now())
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    fmt.Printf("Total tax: $%.2f\n", result.TotalTaxAmount) // $1800.00
+}
 ```
 
 ### HTTP API
