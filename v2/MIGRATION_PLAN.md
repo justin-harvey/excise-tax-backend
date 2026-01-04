@@ -78,10 +78,10 @@ v2/
 - [x] **Test**: Write `client_test.go` with table-driven tests
 
 #### Connection Management (`internal/xrpl/connection.go`)
-- [ ] Implement reconnection with exponential backoff
-- [ ] Add connection health checks (ping/pong)
-- [ ] Use `sync.Mutex` for thread-safe operations
-- [ ] Implement graceful shutdown with timeout
+- [x] Implement reconnection with exponential backoff
+- [x] Add connection health checks (ping/pong)
+- [x] Use `sync.Mutex` for thread-safe operations
+- [x] Implement graceful shutdown with timeout
 
 #### XRPL Operations (`internal/xrpl/client.go`)
 - [x] `GetAccountInfo(address string) (*AccountInfo, error)`

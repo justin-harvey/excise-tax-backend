@@ -1,0 +1,53 @@
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"github.com/maxfelker/excise-tax-backend/v2/internal/xrpl"
+)
+
+// Example demonstrating connection management with automatic reconnection
+func main() {
+	// Create client
+	client := xrpl.New("wss://s.altnet.rippletest.net:51233")
+
+	// Create connection manager with context
+	ctx := context.Background()
+	cm := client.NewConnectionManager(ctx)
+
+	// Connect with automatic retry
+	fmt.Println("Connecting to XRPL testnet...")
+	if err := cm.ConnectWithRetry(); err != nil {
+		log.Fatalf("Failed to connect: %v", err)
+	}
+	fmt.Println("Connected successfully!")
+
+	// Query account info
+	info, err := client.GetAccountInfo(ctx, "rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY")
+	if err != nil {
+		log.Fatalf("Failed to get account info: %v", err)
+	}
+
+	xrp, _ := xrpl.DropsToXRP(info.Balance)
+	fmt.Printf("Balance: %s XRP\n", xrp)
+
+	// Wait for interrupt signal
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	
+	fmt.Println("\nPress Ctrl+C to exit...")
+	<-sigChan
+
+	// Graceful shutdown with 5 second timeout
+	fmt.Println("\nShutting down...")
+	if err := cm.Shutdown(5 * time.Second); err != nil {
+		log.Printf("Shutdown error: %v", err)
+	}
+	fmt.Println("Goodbye!")
+}
