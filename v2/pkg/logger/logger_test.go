@@ -219,7 +219,7 @@ func TestNewFromEnv(t *testing.T) {
 
 			// Capture output
 			var buf bytes.Buffer
-			
+
 			// Create logger manually with env settings to capture output
 			level := LevelInfo
 			if envLevel := os.Getenv("LOG_LEVEL"); envLevel != "" {
@@ -255,7 +255,7 @@ func TestDefault(t *testing.T) {
 	var buf bytes.Buffer
 	logger = New(Options{Level: LevelInfo, JSON: false, Writer: &buf})
 	logger.Info("test")
-	
+
 	if !strings.Contains(buf.String(), "test") {
 		t.Error("Expected log message to contain 'test'")
 	}

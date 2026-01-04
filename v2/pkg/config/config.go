@@ -55,13 +55,13 @@ func (d *Duration) UnmarshalYAML(value *yaml.Node) error {
 type Config struct {
 	// XRPL settings
 	XRPL XRPLConfig `json:"xrpl" yaml:"xrpl"`
-	
+
 	// Server settings
 	Server ServerConfig `json:"server" yaml:"server"`
-	
+
 	// Logging settings
 	Logging LogConfig `json:"logging" yaml:"logging"`
-	
+
 	// Environment
 	Env string `json:"env" yaml:"env"`
 }
