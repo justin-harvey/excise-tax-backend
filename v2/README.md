@@ -33,30 +33,53 @@ go build -o xrpl-cli ./cmd/xrpl-cli
 
 ## Testing
 
-### Local
+### Unit Tests
+
+Run tests that don't require network connectivity:
 
 ```bash
-# Run all tests
+# Run all unit tests
 go test ./...
 
 # With race detector
 go test -race ./...
 
-# With coverage
+# With coverage report
 go test -coverprofile=coverage.out ./...
 go tool cover -html=coverage.out
 ```
 
-### Docker
+**Expected output:** Tests complete in under 2 seconds. Current coverage: 26% overall (pkg/config: 78%, pkg/logger: 65%, internal/xrpl: 22%).
+
+### Integration Tests
+
+Run tests against real XRPL testnet (requires internet):
 
 ```bash
-# Run tests in container
+# Run integration tests
+go test -tags=integration ./internal/xrpl -v
+
+# With race detector (recommended)
+go test -race -tags=integration ./internal/xrpl -timeout 120s
+
+# Skip integration tests in short mode
+go test -tags=integration -short ./internal/xrpl -v
+```
+
+**Expected output:** Tests complete in 3-5 seconds. Connects to `wss://s.altnet.rippletest.net:51233` and queries real accounts.
+
+**Note:** Integration tests use the `-tags=integration` flag so they don't run with `go test ./...` by default.
+
+### Docker Testing
+
+```bash
+# Unit tests
 docker compose run --rm test
 
-# Run specific package
-docker compose run --rm test go test -v ./internal/xrpl
+# Integration tests
+docker compose run --rm test go test -tags=integration ./internal/xrpl -v
 
-# View coverage
+# Coverage report
 docker compose run --rm test sh -c "go test -coverprofile=coverage.out ./... && go tool cover -func=coverage.out"
 ```
 

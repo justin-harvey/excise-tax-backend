@@ -24,6 +24,7 @@ type Client struct {
 	url       string
 	conn      *websocket.Conn
 	mu        sync.RWMutex
+	writeMu   sync.Mutex // Separate mutex for WebSocket writes
 	nextID    int
 	responses map[int]chan Response
 	streams   map[string]chan StreamMessage
@@ -71,15 +72,23 @@ func (c *Client) Connect(ctx context.Context) error {
 // Close closes the WebSocket connection
 func (c *Client) Close() error {
 	c.mu.Lock()
-	defer c.mu.Unlock()
 
 	if c.conn == nil {
+		c.mu.Unlock()
 		return nil
 	}
 
+	// Close the done channel first to signal readLoop
 	close(c.done)
+
+	// Close the connection
 	err := c.conn.Close()
 	c.conn = nil
+
+	c.mu.Unlock()
+
+	// Give readLoop a moment to exit
+	time.Sleep(10 * time.Millisecond)
 
 	return err
 }
@@ -404,7 +413,7 @@ func (c *Client) sendRequest(ctx context.Context, req map[string]interface{}) (*
 		c.mu.Unlock()
 	}()
 
-	// Send request
+	// Send request (protect WebSocket writes with separate mutex)
 	c.mu.RLock()
 	conn := c.conn
 	c.mu.RUnlock()
@@ -413,7 +422,12 @@ func (c *Client) sendRequest(ctx context.Context, req map[string]interface{}) (*
 		return nil, ErrNotConnected
 	}
 
-	if err := conn.WriteJSON(req); err != nil {
+	// Serialize WebSocket writes
+	c.writeMu.Lock()
+	err := conn.WriteJSON(req)
+	c.writeMu.Unlock()
+
+	if err != nil {
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
 
@@ -436,19 +450,28 @@ func (c *Client) sendRequest(ctx context.Context, req map[string]interface{}) (*
 
 // readLoop continuously reads messages from the WebSocket
 func (c *Client) readLoop() {
+	defer func() {
+		// Recover from any panics
+		if r := recover(); r != nil {
+			// Connection was closed, that's okay
+		}
+	}()
+
 	for {
+		// Check if we should exit
+		c.mu.RLock()
+		conn := c.conn
+		done := c.done
+		c.mu.RUnlock()
+
+		if conn == nil {
+			return
+		}
+
 		select {
-		case <-c.done:
+		case <-done:
 			return
 		default:
-			c.mu.RLock()
-			conn := c.conn
-			c.mu.RUnlock()
-
-			if conn == nil {
-				return
-			}
-
 			// Read raw message
 			var rawMsg map[string]interface{}
 			if err := conn.ReadJSON(&rawMsg); err != nil {

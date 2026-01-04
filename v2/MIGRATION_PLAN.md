@@ -118,12 +118,19 @@ v2/
   - [x] Table-driven tests (idiomatic Go)
   - [x] Test error paths and edge cases
   - [x] Mock XRPL responses
-- [ ] **Integration tests**: Test against testnet
-  - [ ] Real WebSocket connections
-  - [ ] Actual account queries
+- [x] **Integration tests**: Test against testnet
+  - [x] Real WebSocket connections
+  - [x] Actual account queries
+  - [x] Transaction retrieval tests
+  - [x] Subscription/unsubscription tests
+  - [x] Concurrent request handling
+  - [x] Context cancellation tests
 - [x] Run `go test ./...` after each feature
-- [x] Aim for >80% coverage (currently at 26.1%, pkg/config at 78%, pkg/logger at 65%)
-- [ ] Run `go test -race` to detect race conditions
+- [x] Aim for >80% coverage (currently at 26%, pkg/config at 78%, pkg/logger at 65%)
+- [x] Bug fixes found via integration tests:
+  - [x] Added writeMu to prevent concurrent WebSocket write panics
+  - [x] Fixed race condition in readLoop during reconnection
+- [x] Run `go test -race` to detect race conditions - All tests pass!
 
 #### Documentation (As You Go)
 - [x] README with installation and usage
