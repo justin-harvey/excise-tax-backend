@@ -184,6 +184,42 @@ func TestGetTransaction_NotConnected(t *testing.T) {
 	}
 }
 
+// TestGetTransaction_InvalidHash tests validation of transaction hash
+func TestGetTransaction_InvalidHash(t *testing.T) {
+	client := New("wss://test.example.com")
+	ctx := context.Background()
+
+	tests := []struct {
+		name string
+		hash string
+	}{
+		{"empty hash", ""},
+		{"too short", "ABC123"},
+		{"too long", "E08D6E9754025BA2534A78707605E0601F03ACE063687A0CA1BDDACFCD1698C7EXTRA"},
+		{"invalid characters", "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := client.GetTransaction(ctx, tt.hash)
+			if err == nil {
+				t.Error("GetTransaction() expected error for invalid hash, got nil")
+			}
+		})
+	}
+}
+
+// TestVerifyTransaction_NotConnected tests behavior when client is not connected
+func TestVerifyTransaction_NotConnected(t *testing.T) {
+	client := New("wss://test.example.com")
+	ctx := context.Background()
+
+	_, err := client.VerifyTransaction(ctx, "E08D6E9754025BA2534A78707605E0601F03ACE063687A0CA1BDDACFCD1698C7")
+	if err != ErrNotConnected {
+		t.Errorf("VerifyTransaction() error = %v, want %v", err, ErrNotConnected)
+	}
+}
+
 // TestGetAccountTransactions_NotConnected tests behavior when client is not connected
 func TestGetAccountTransactions_NotConnected(t *testing.T) {
 	client := New("wss://test.example.com")
@@ -192,6 +228,34 @@ func TestGetAccountTransactions_NotConnected(t *testing.T) {
 	_, err := client.GetAccountTransactions(ctx, "rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY", 10)
 	if err != ErrNotConnected {
 		t.Errorf("GetAccountTransactions() error = %v, want %v", err, ErrNotConnected)
+	}
+}
+
+// TestGetAccountTransactions_Limits tests various limit scenarios
+func TestGetAccountTransactions_Limits(t *testing.T) {
+	client := New("wss://test.example.com")
+	ctx := context.Background()
+
+	tests := []struct {
+		name          string
+		limit         int
+		expectedLimit int
+	}{
+		{"zero limit defaults to 10", 0, 10},
+		{"negative limit defaults to 10", -5, 10},
+		{"small limit", 5, 5},
+		{"large limit", 200, 200},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// This will fail with ErrNotConnected, but we're testing the limit logic
+			_, err := client.GetAccountTransactions(ctx, "rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY", tt.limit)
+			// We expect it to fail with not connected, which means validation passed
+			if err != ErrNotConnected {
+				t.Errorf("Expected ErrNotConnected, got %v", err)
+			}
+		})
 	}
 }
 

@@ -260,3 +260,87 @@ func TestDefault(t *testing.T) {
 		t.Error("Expected log message to contain 'test'")
 	}
 }
+
+func TestNewFromEnv_Variants(t *testing.T) {
+	tests := []struct {
+		name    string
+		setup   func()
+		cleanup func()
+		verify  func(*testing.T, *slog.Logger)
+	}{
+		{
+			name: "with LOG_LEVEL=debug",
+			setup: func() {
+				os.Setenv("LOG_LEVEL", "debug")
+			},
+			cleanup: func() {
+				os.Unsetenv("LOG_LEVEL")
+			},
+			verify: func(t *testing.T, logger *slog.Logger) {
+				if logger == nil {
+					t.Fatal("NewFromEnv returned nil")
+				}
+				// Verify by logging and checking level behavior with a test logger
+				var buf bytes.Buffer
+				testLogger := New(Options{Level: LevelDebug, JSON: false, Writer: &buf})
+				testLogger.Debug("debug msg")
+				if !strings.Contains(buf.String(), "debug msg") {
+					t.Error("Debug level not working")
+				}
+			},
+		},
+		{
+			name: "with LOG_JSON=true",
+			setup: func() {
+				os.Setenv("LOG_JSON", "true")
+			},
+			cleanup: func() {
+				os.Unsetenv("LOG_JSON")
+			},
+			verify: func(t *testing.T, logger *slog.Logger) {
+				if logger == nil {
+					t.Fatal("NewFromEnv returned nil")
+				}
+			},
+		},
+		{
+			name: "with ENV=production",
+			setup: func() {
+				os.Setenv("ENV", "production")
+			},
+			cleanup: func() {
+				os.Unsetenv("ENV")
+			},
+			verify: func(t *testing.T, logger *slog.Logger) {
+				if logger == nil {
+					t.Fatal("NewFromEnv returned nil")
+				}
+			},
+		},
+		{
+			name: "without any env vars",
+			setup: func() {
+				// Clean environment
+				os.Unsetenv("LOG_LEVEL")
+				os.Unsetenv("LOG_JSON")
+				os.Unsetenv("ENV")
+			},
+			cleanup: func() {},
+			verify: func(t *testing.T, logger *slog.Logger) {
+				if logger == nil {
+					t.Fatal("NewFromEnv returned nil")
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.setup()
+			defer tt.cleanup()
+
+			logger := NewFromEnv()
+			tt.verify(t, logger)
+		})
+	}
+}

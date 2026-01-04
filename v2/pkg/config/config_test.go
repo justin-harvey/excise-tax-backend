@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestDefault(t *testing.T) {
@@ -350,4 +352,260 @@ func containsMiddle(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+func TestDuration_UnmarshalJSON_ErrorCases(t *testing.T) {
+	tests := []struct {
+		name    string
+		json    string
+		wantErr bool
+	}{
+		{
+			name:    "invalid JSON",
+			json:    `{invalid}`,
+			wantErr: true,
+		},
+		{
+			name:    "invalid duration string",
+			json:    `"not-a-duration"`,
+			wantErr: true,
+		},
+		{
+			name:    "invalid type (array)",
+			json:    `["10s"]`,
+			wantErr: true,
+		},
+		{
+			name:    "invalid type (object)",
+			json:    `{"duration": "10s"}`,
+			wantErr: true,
+		},
+		{
+			name:    "valid string",
+			json:    `"10s"`,
+			wantErr: false,
+		},
+		{
+			name:    "valid number",
+			json:    `10000000000`,
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var d Duration
+			err := d.UnmarshalJSON([]byte(tt.json))
+			if (err != nil) != tt.wantErr {
+				t.Errorf("UnmarshalJSON() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestDuration_UnmarshalYAML_ErrorCases(t *testing.T) {
+	tests := []struct {
+		name    string
+		yaml    string
+		wantErr bool
+	}{
+		{
+			name:    "invalid duration format",
+			yaml:    "timeout: not-a-duration\n",
+			wantErr: true,
+		},
+		{
+			name:    "valid duration",
+			yaml:    "timeout: 10s\n",
+			wantErr: false,
+		},
+		{
+			name:    "invalid YAML structure",
+			yaml:    "timeout:\n  nested: value\n",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			type testConfig struct {
+				Timeout Duration `yaml:"timeout"`
+			}
+			var cfg testConfig
+			err := yaml.Unmarshal([]byte(tt.yaml), &cfg)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("UnmarshalYAML() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestLoadFromEnv_CompleteOverride(t *testing.T) {
+	// Set comprehensive env vars
+	envVars := map[string]string{
+		"XRPL_NETWORK":         "mainnet",
+		"XRPL_URL":             "wss://custom.xrpl.org",
+		"XRPL_TIMEOUT":         "30s",
+		"SERVER_PORT":          "9090",
+		"SERVER_READ_TIMEOUT":  "15s",
+		"SERVER_WRITE_TIMEOUT": "15s",
+		"SERVER_IDLE_TIMEOUT":  "120s",
+		"LOG_LEVEL":            "debug",
+		"LOG_JSON":             "true",
+		"ENV":                  "production",
+	}
+
+	for k, v := range envVars {
+		os.Setenv(k, v)
+	}
+	defer func() {
+		for k := range envVars {
+			os.Unsetenv(k)
+		}
+	}()
+
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	// Verify all env vars were applied
+	if cfg.XRPL.Network != "mainnet" {
+		t.Errorf("XRPL.Network = %v, want mainnet", cfg.XRPL.Network)
+	}
+	if cfg.Server.Port != 9090 {
+		t.Errorf("Server.Port = %v, want 9090", cfg.Server.Port)
+	}
+	if cfg.Logging.Level != "debug" {
+		t.Errorf("Logging.Level = %v, want debug", cfg.Logging.Level)
+	}
+	if !cfg.Logging.JSON {
+		t.Errorf("Logging.JSON = %v, want true", cfg.Logging.JSON)
+	}
+	if cfg.Env != "production" {
+		t.Errorf("Env = %v, want production", cfg.Env)
+	}
+}
+
+func TestLoad_InvalidEnvValues(t *testing.T) {
+	tests := []struct {
+		name   string
+		envVar string
+		value  string
+	}{
+		{"invalid timeout", "XRPL_TIMEOUT", "not-a-duration"},
+		{"invalid port", "SERVER_PORT", "not-a-number"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			os.Setenv(tt.envVar, tt.value)
+			defer os.Unsetenv(tt.envVar)
+
+			// Load should not fail, but will use defaults for invalid values
+			cfg, err := Load("")
+			if err != nil {
+				t.Fatalf("Load() error = %v", err)
+			}
+			// Verify we got a valid config
+			if err := cfg.Validate(); err != nil {
+				t.Errorf("Config validation failed: %v", err)
+			}
+		})
+	}
+}
+
+func TestLoadFromFile_InvalidYAML(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "invalid.yaml")
+
+	// Write invalid YAML
+	invalidYAML := `
+xrpl:
+  network: testnet
+  - invalid: structure
+`
+	if err := os.WriteFile(configPath, []byte(invalidYAML), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := Load(configPath)
+	if err == nil {
+		t.Error("Expected error for invalid YAML")
+	}
+}
+
+func TestMerge_AllFields(t *testing.T) {
+	// Create config from file with defaults
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "test.yaml")
+
+	yamlContent := `
+xrpl:
+  network: mainnet
+  url: wss://xrplcluster.com
+  timeout: 20s
+server:
+  port: 9000
+  read_timeout: 20s
+  write_timeout: 20s
+  idle_timeout: 120s
+logging:
+  level: debug
+  json: true
+env: production
+`
+	if err := os.WriteFile(configPath, []byte(yamlContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	// Verify all fields were loaded
+	if cfg.XRPL.Network != "mainnet" {
+		t.Errorf("XRPL.Network = %v, want mainnet", cfg.XRPL.Network)
+	}
+	if cfg.XRPL.URL != "wss://xrplcluster.com" {
+		t.Errorf("XRPL.URL = %v, want wss://xrplcluster.com", cfg.XRPL.URL)
+	}
+	if cfg.Server.Port != 9000 {
+		t.Errorf("Server.Port = %v, want 9000", cfg.Server.Port)
+	}
+	if cfg.Logging.Level != "debug" {
+		t.Errorf("Logging.Level = %v, want debug", cfg.Logging.Level)
+	}
+	if !cfg.Logging.JSON {
+		t.Errorf("Logging.JSON = %v, want true", cfg.Logging.JSON)
+	}
+	if cfg.Env != "production" {
+		t.Errorf("Env = %v, want production", cfg.Env)
+	}
+
+	// Now override with env vars
+	os.Setenv("SERVER_PORT", "7777")
+	os.Setenv("LOG_LEVEL", "error")
+	defer func() {
+		os.Unsetenv("SERVER_PORT")
+		os.Unsetenv("LOG_LEVEL")
+	}()
+
+	cfg2, err := Load(configPath)
+	if err != nil {
+		t.Fatalf("Load() with env override error = %v", err)
+	}
+
+	// Env should override file
+	if cfg2.Server.Port != 7777 {
+		t.Errorf("Server.Port = %v, want 7777 (env override)", cfg2.Server.Port)
+	}
+	if cfg2.Logging.Level != "error" {
+		t.Errorf("Logging.Level = %v, want error (env override)", cfg2.Logging.Level)
+	}
+	// File value should be preserved for non-overridden fields
+	if cfg2.XRPL.Network != "mainnet" {
+		t.Errorf("XRPL.Network = %v, want mainnet (from file)", cfg2.XRPL.Network)
+	}
 }

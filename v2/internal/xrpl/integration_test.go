@@ -221,6 +221,63 @@ func TestIntegration_GetTransaction_InvalidHash(t *testing.T) {
 	}
 }
 
+func TestIntegration_VerifyTransaction(t *testing.T) {
+	skipIfShort(t)
+
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
+	client := setupClient(t, ctx)
+
+	// First get a recent transaction to verify
+	txs, err := client.GetAccountTransactions(ctx, testAccount, 1)
+	if err != nil {
+		t.Fatalf("GetAccountTransactions() failed: %v", err)
+	}
+
+	if len(txs) == 0 {
+		t.Skip("No transactions available for test account")
+	}
+
+	txHash := txs[0].Hash
+
+	// Verify the transaction
+	result, err := client.VerifyTransaction(ctx, txHash)
+	if err != nil {
+		t.Fatalf("VerifyTransaction() failed: %v", err)
+	}
+
+	if result.Hash != txHash {
+		t.Errorf("VerifyTransaction() hash = %s, want %s", result.Hash, txHash)
+	}
+
+	if result.Status == "" {
+		t.Error("VerifyTransaction() returned empty status")
+	}
+
+	// Validated transactions should have status "validated"
+	if result.Validated && result.Status != "validated" {
+		t.Errorf("VerifyTransaction() status = %s, want 'validated' for validated tx", result.Status)
+	}
+
+	t.Logf("Transaction %s status: %s (validated: %v)", txHash, result.Status, result.Validated)
+}
+
+func TestIntegration_VerifyTransaction_InvalidHash(t *testing.T) {
+	skipIfShort(t)
+
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
+	client := setupClient(t, ctx)
+
+	// Test with invalid hash format
+	_, err := client.VerifyTransaction(ctx, "invalid")
+	if err == nil {
+		t.Error("VerifyTransaction() with invalid hash should fail")
+	}
+}
+
 func TestIntegration_GetAccountTransactions(t *testing.T) {
 	skipIfShort(t)
 

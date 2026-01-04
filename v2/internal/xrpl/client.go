@@ -223,7 +223,27 @@ func (c *Client) GetTransaction(ctx context.Context, hash string) (*TxResult, er
 
 	return result, nil
 }
+// VerifyTransaction verifies a transaction and returns its validation status
+func (c *Client) VerifyTransaction(ctx context.Context, hash string) (*TxResult, error) {
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
 
+	// Get the transaction
+	result, err := c.GetTransaction(ctx, hash)
+	if err != nil {
+		return nil, fmt.Errorf("failed to verify transaction: %w", err)
+	}
+
+	// Set status based on validation
+	if result.Validated {
+		result.Status = "validated"
+	} else {
+		result.Status = "pending"
+	}
+
+	return result, nil
+}
 // GetAccountTransactions retrieves recent transactions for an account
 func (c *Client) GetAccountTransactions(ctx context.Context, address string, limit int) ([]Transaction, error) {
 	if !c.IsConnected() {
