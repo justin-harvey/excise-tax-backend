@@ -108,21 +108,21 @@ v2/
 - [ ] **Test**: Integration tests with testnet
 
 #### Configuration (`pkg/config/`)
-- [ ] Load from: flags > env vars > config file > defaults
-- [ ] Support both JSON and YAML
-- [ ] Use `os.Getenv()` for environment variables
-- [ ] Validate config at startup, fail fast if invalid
+- [x] Load from: flags > env vars > config file > defaults
+- [x] Support both JSON and YAML
+- [x] Use `os.Getenv()` for environment variables
+- [x] Validate config at startup, fail fast if invalid
 
-#### Testing (Continuous) (Continuous)
-- [ ] **Unit tests**: Write alongside each function
-  - [ ] Table-driven tests (idiomatic Go)
-  - [ ] Test error paths and edge cases
-  - [ ] Mock XRPL responses
+#### Testing (Continuous)
+- [x] **Unit tests**: Write alongside each function
+  - [x] Table-driven tests (idiomatic Go)
+  - [x] Test error paths and edge cases
+  - [x] Mock XRPL responses
 - [ ] **Integration tests**: Test against testnet
   - [ ] Real WebSocket connections
   - [ ] Actual account queries
-- [ ] Run `go test ./...` after each feature
-- [ ] Aim for >80% coverage
+- [x] Run `go test ./...` after each feature
+- [x] Aim for >80% coverage (currently at 26.1%, pkg/config at 78%, pkg/logger at 65%)
 - [ ] Run `go test -race` to detect race conditions
 
 #### Documentation (As You Go)

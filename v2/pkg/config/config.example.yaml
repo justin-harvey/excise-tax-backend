@@ -1,0 +1,22 @@
+# Example Configuration File
+
+# XRPL Settings
+xrpl:
+  network: testnet  # Options: testnet, mainnet, devnet
+  url: wss://s.altnet.rippletest.net:51233
+  timeout: 10s
+
+# Server Settings
+server:
+  port: 8080
+  read_timeout: 10s
+  write_timeout: 10s
+  idle_timeout: 60s
+
+# Logging Settings
+logging:
+  level: info  # Options: debug, info, warn, error
+  json: false  # Set to true for JSON output (production)
+
+# Environment
+env: development  # Options: development, staging, production
