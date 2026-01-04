@@ -10,7 +10,6 @@ import (
 	"github.com/excise-tax-portal/backend/internal/payment/model"
 	"github.com/excise-tax-portal/backend/internal/payment/repository"
 	"github.com/excise-tax-portal/backend/internal/payment/xrpl"
-	"github.com/excise-tax-portal/backend/pkg/cache"
 
 	"go.uber.org/zap"
 )
@@ -18,7 +17,6 @@ import (
 // PaymentService handles payment business logic.
 type PaymentService struct {
 	repo       *repository.PaymentRepository
-	cache      *cache.RedisClient
 	xrplClient *xrpl.Client
 	oracle     *xrpl.PriceOracle
 	monitor    *xrpl.MonitorService
@@ -29,7 +27,6 @@ type PaymentService struct {
 // NewPaymentService creates a new payment service.
 func NewPaymentService(
 	repo *repository.PaymentRepository,
-	cache *cache.RedisClient,
 	xrplClient *xrpl.Client,
 	oracle *xrpl.PriceOracle,
 	monitor *xrpl.MonitorService,
@@ -38,7 +35,6 @@ func NewPaymentService(
 ) *PaymentService {
 	return &PaymentService{
 		repo:       repo,
-		cache:      cache,
 		xrplClient: xrplClient,
 		oracle:     oracle,
 		monitor:    monitor,
@@ -143,21 +139,11 @@ func (s *PaymentService) CreateXRPLPayment(ctx context.Context, req *CreateXRPLP
 
 // GetPayment retrieves a payment by ID.
 func (s *PaymentService) GetPayment(ctx context.Context, id int64) (*model.PaymentWithXRPL, error) {
-	// Try cache first
-	cacheKey := fmt.Sprintf("payment:%d", id)
-	var cached model.PaymentWithXRPL
-	if err := s.cache.Get(ctx, cacheKey, &cached); err == nil {
-		return &cached, nil
-	}
-
-	// Get from database
+	// Get from database (no caching)
 	payment, err := s.repo.GetPaymentByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
-
-	// Cache for 5 minutes
-	_ = s.cache.Set(ctx, cacheKey, payment, 5*time.Minute)
 
 	return payment, nil
 }
@@ -215,10 +201,6 @@ func (s *PaymentService) VerifyPayment(ctx context.Context, paymentID int64, txH
 	if err != nil {
 		return nil, fmt.Errorf("failed to update payment status: %w", err)
 	}
-
-	// Invalidate cache
-	cacheKey := fmt.Sprintf("payment:%d", paymentID)
-	_ = s.cache.Delete(ctx, cacheKey)
 
 	// Log transaction
 	s.logTransaction(ctx, payment, verification)
@@ -339,13 +321,6 @@ func (s *PaymentService) createPaymentCallback(paymentID int64) xrpl.PaymentCall
 			}
 		}
 
-		// Invalidate cache
-		cacheKey := fmt.Sprintf("payment:%d", paymentID)
-		_ = s.cache.Delete(ctx, cacheKey)
-
-		return nil
-	}
-}
 
 // saveExchangeRate saves the exchange rate to the database.
 func (s *PaymentService) saveExchangeRate(ctx context.Context, rate float64) {

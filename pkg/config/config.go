@@ -227,20 +227,6 @@ func setDefaults() {
 	viper.SetDefault("database.max_conn_lifetime", 1*time.Hour)
 	viper.SetDefault("database.max_conn_idle_time", 30*time.Minute)
 
-	// Redis defaults
-	viper.SetDefault("redis.host", "localhost")
-	viper.SetDefault("redis.port", 6379)
-	viper.SetDefault("redis.db", 0)
-	viper.SetDefault("redis.max_retries", 3)
-	viper.SetDefault("redis.min_idle_conns", 5)
-	viper.SetDefault("redis.pool_size", 10)
-	viper.SetDefault("redis.conn_max_idle_time", 5*time.Minute)
-
-	// RabbitMQ defaults
-	viper.SetDefault("rabbitmq.host", "localhost")
-	viper.SetDefault("rabbitmq.port", 5672)
-	viper.SetDefault("rabbitmq.vhost", "/")
-
 	// S3 defaults
 	viper.SetDefault("s3.region", "us-east-1")
 	viper.SetDefault("s3.use_ssl", true)

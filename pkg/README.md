@@ -4,33 +4,6 @@ This directory contains shared packages used across all microservices in the exc
 
 ## Packages
 
-### cache
-
-Redis client wrapper with generic type support for caching operations.
-
-**Features:**
-- Generic Get/Set operations with automatic JSON serialization
-- TTL management
-- Pub/Sub support
-- Health checks
-- Connection pooling
-
-**Example:**
-```go
-client, err := cache.NewRedisClient(ctx, &cache.Config{
-    Host: "localhost",
-    Port: 6379,
-})
-defer client.Close()
-
-// Set with TTL
-err = client.Set(ctx, "user:123", userData, 1*time.Hour)
-
-// Get
-var user User
-err = client.Get(ctx, "user:123", &user)
-```
-
 ### config
 
 Configuration management with support for YAML files and environment variables.

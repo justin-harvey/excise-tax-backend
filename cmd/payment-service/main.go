@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	t "go.uber.org/zap"
 	"net/http"
 	"os"
 	"os/signal"
@@ -14,7 +13,6 @@ import (
 	"github.com/excise-tax-portal/backend/internal/payment/repository"
 	"github.com/excise-tax-portal/backend/internal/payment/service"
 	"github.com/excise-tax-portal/backend/internal/payment/xrpl"
-	"github.com/excise-tax-portal/backend/pkg/cache"
 	"github.com/excise-tax-portal/backend/pkg/database"
 	"github.com/excise-tax-portal/backend/pkg/logger"
 
@@ -49,13 +47,6 @@ func main() {
 	}
 	defer db.Close()
 
-	// Initialize Redis
-	redisClient, err := initRedis(ctx, log)
-	if err != nil {
-		log.Fatal("failed to initialize Redis", zap.Error(err))
-	}
-	defer redisClient.Close()
-
 	// Initialize XRPL client
 	xrplClient, err := initXRPLClient(ctx, log)
 	if err != nil {
@@ -78,7 +69,7 @@ func main() {
 	// Initialize services
 	paymentRepo := repository.NewPaymentRepository(db)
 	processor := xrpl.NewPaymentProcessor(xrplClient, oracle, monitor, log)
-	paymentService := service.NewPaymentService(paymentRepo, redisClient, xrplClient, oracle, monitor, processor, log)
+	paymentService := service.NewPaymentService(paymentRepo, xrplClient, oracle, monitor, processor, log)
 
 	// Initialize HTTP server
 	srv := initHTTPServer(paymentService, log)
@@ -134,27 +125,6 @@ func initDatabase(ctx context.Context, log *zap.Logger) (*database.PostgresDB, e
 	)
 
 	return db, nil
-}
-
-func initRedis(ctx context.Context, log *zap.Logger) (*cache.RedisClient, error) {
-	cfg := &cache.Config{
-		Host:     getEnv("REDIS_HOST", "localhost"),
-		Port:     getEnvInt("REDIS_PORT", 6379),
-		Password: getEnv("REDIS_PASSWORD", ""),
-		DB:       getEnvInt("REDIS_DB", 0),
-	}
-
-	client, err := cache.NewRedisClient(ctx, cfg)
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to Redis: %w", err)
-	}
-
-	log.Info("Redis connected",
-		zap.String("host", cfg.Host),
-		zap.Int("port", cfg.Port),
-	)
-
-	return client, nil
 }
 
 func initXRPLClient(ctx context.Context, log *zap.Logger) (*xrpl.Client, error) {

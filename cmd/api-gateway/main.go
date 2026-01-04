@@ -18,7 +18,6 @@ import (
 	"github.com/excise-tax-portal/backend/internal/api-gateway/middleware"
 	"github.com/excise-tax-portal/backend/internal/api-gateway/proxy"
 	"github.com/excise-tax-portal/backend/internal/api-gateway/router"
-	"github.com/excise-tax-portal/backend/pkg/cache"
 	"github.com/excise-tax-portal/backend/pkg/logger"
 )
 
@@ -48,26 +47,14 @@ type Config struct {
 		ReportingURL string `yaml:"reporting_url"`
 	} `yaml:"services"`
 
-	Redis struct {
-		Host     string `yaml:"host"`
-		Port     int    `yaml:"port"`
-		Password string `yaml:"password"`
-		DB       int    `yaml:"db"`
-	} `yaml:"redis"`
-
 	Logging struct {
 		Level       string `yaml:"level"`
 		Environment string `yaml:"environment"`
 	} `yaml:"logging"`
-}
 
-// RedisHealthAdapter adapts cache.RedisClient to handler.RedisHealthChecker
-type RedisHealthAdapter struct {
-	client *cache.RedisClient
-}
-
-func (r *RedisHealthAdapter) HealthCheck(ctx context.Context) error {
-	return r.client.HealthCheck(ctx)
+	JWT struct {
+		SecretKey string `yaml:"secret_key"`
+	} `yaml:"jwt"`
 }
 
 func main() {
@@ -94,25 +81,7 @@ func main() {
 		zap.String("environment", cfg.Logging.Environment),
 	)
 
-	// Initialize Redis client
-	redisConfig := &cache.Config{
-		Host:     cfg.Redis.Host,
-		Port:     cfg.Redis.Port,
-		Password: cfg.Redis.Password,
-		DB:       cfg.Redis.DB,
-	}
-
 	ctx := context.Background()
-	redisClient, err := cache.NewRedisClient(ctx, redisConfig)
-	if err != nil {
-		log.Fatal("Failed to connect to Redis", zap.Error(err))
-	}
-	defer redisClient.Close()
-
-	log.Info("Connected to Redis",
-		zap.String("host", cfg.Redis.Host),
-		zap.Int("port", cfg.Redis.Port),
-	)
 
 	// Initialize service proxy
 	proxyConfig := proxy.ProxyConfig{
@@ -154,17 +123,8 @@ func main() {
 	defer healthCheckCancel()
 	go serviceProxy.StartHealthChecks(healthCheckCtx, 30*time.Second)
 
-	// Initialize rate limiter
-	rateLimitConfig := middleware.DefaultRateLimitConfig()
-	rateLimitConfig.RequestsPerWindow = cfg.RateLimit.RequestsPerMinute
-	rateLimitConfig.WindowSize = 15 * time.Minute // As per spec
-	rateLimitConfig.BurstSize = cfg.RateLimit.Burst
-
-	rateLimiter := middleware.NewRateLimiter(redisClient.GetClient(), rateLimitConfig, log.GetZapLogger())
-
-	// Initialize health handler
-	redisHealthAdapter := &RedisHealthAdapter{client: redisClient}
-	healthHandler := handler.NewHealthHandler(serviceProxy, redisHealthAdapter, log.GetZapLogger())
+	// Initialize health handler (no Redis dependency)
+	healthHandler := handler.NewHealthHandler(serviceProxy, nil, log.GetZapLogger())
 
 	// Configure CORS
 	corsConfig := middleware.CORSConfig{
@@ -196,11 +156,11 @@ func main() {
 	routerConfig := router.Config{
 		Logger:          log.GetZapLogger(),
 		ServiceProxy:    serviceProxy,
-		RateLimiter:     rateLimiter,
+		RateLimiter:     nil, // Rate limiting removed
 		HealthHandler:   healthHandler,
 		CORSConfig:      corsConfig,
 		AuthConfig:      authConfig,
-		EnableMetrics:   true,
+		EnableMetrics:   false, // Prometheus metrics removed
 		EnableDebugMode: cfg.Logging.Environment == "development",
 	}
 
@@ -279,20 +239,8 @@ func loadConfig() (*Config, error) {
 		fmt.Sscanf(port, "%d", &cfg.Server.Port)
 	}
 
-	if redisHost := os.Getenv("REDIS_HOST"); redisHost != "" {
-		cfg.Redis.Host = redisHost
-	} else if cfg.Redis.Host == "" {
-		cfg.Redis.Host = "localhost"
-	}
-
-	if redisPort := os.Getenv("REDIS_PORT"); redisPort != "" {
-		fmt.Sscanf(redisPort, "%d", &cfg.Redis.Port)
-	} else if cfg.Redis.Port == 0 {
-		cfg.Redis.Port = 6379
-	}
-
-	if redisPassword := os.Getenv("REDIS_PASSWORD"); redisPassword != "" {
-		cfg.Redis.Password = redisPassword
+	if jwtSecret := os.Getenv("JWT_SECRET"); jwtSecret != "" {
+		cfg.JWT.SecretKey = jwtSecret
 	}
 
 	// Service URLs

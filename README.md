@@ -6,7 +6,7 @@ A scalable microservices-based backend for the Excise Tax Portal, built with Go 
 
 The backend is organized as a microservices architecture with the following services:
 
-- **API Gateway** (Port 8080): Routes requests, handles authentication, rate limiting, and CORS
+- **API Gateway** (Port 8080): Routes requests, handles authentication and CORS
 - **Payment Service** (Port 8081): Processes payments via XRPL blockchain
 - **Tax Service** (Port 8082): Tax calculation and validation logic
 - **Reporting Service** (Port 8083): Generates tax reports and analytics
@@ -33,9 +33,6 @@ backend/
 │   └── auth/                  # Authentication logic
 ├── pkg/                       # Shared packages
 │   ├── database/              # PostgreSQL connection pool
-│   ├── cache/                 # Redis client
-│   ├── queue/                 # RabbitMQ client
-│   ├── storage/               # S3/MinIO client
 │   ├── logger/                # Structured logging
 │   ├── config/                # Configuration management
 │   ├── errors/                # Custom error types
@@ -47,7 +44,6 @@ backend/
 ├── tests/                     # Integration and E2E tests
 ├── docs/                      # API documentation
 ├── go.mod                     # Go module definition
-├── Makefile                   # Build automation
 └── .env.example              # Environment variables template
 ```
 
@@ -55,9 +51,7 @@ backend/
 
 - **Go 1.21+**: [Install Go](https://golang.org/doc/install)
 - **PostgreSQL 14+**: For data persistence
-- **Redis 7+**: For caching and sessions
-- **RabbitMQ 3.12+** (optional): For async messaging
-- **MinIO/S3** (optional): For report storage
+- **Docker 24.0+**: For containerized deployment
 - **golang-migrate**: For database migrations
 - **golangci-lint**: For code linting
 
@@ -82,18 +76,18 @@ cp .env.example .env
 go mod download
 
 # Install development tools
-make install-tools
+go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 ```
 
 ### 3. Setup Database
 
 ```bash
-# Create database and run migrations
-make db-create
-make migrate-up
+# Start PostgreSQL with Docker
+docker compose up -d postgres
 
-# Or use the combined command
-make db-setup
+# Run migrations
+migrate -path migrations -database "postgresql://postgres:<your-password>@localhost:5432/excise_tax_db?sslmode=disable" up
 ```
 
 ### 4. Run Services
@@ -102,28 +96,28 @@ Option A: Run individual services in separate terminals:
 
 ```bash
 # Terminal 1 - API Gateway
-make run-api-gateway
+go run cmd/api-gateway/main.go
 
 # Terminal 2 - Payment Service
-make run-payment
+go run cmd/payment-service/main.go
 
 # Terminal 3 - Tax Service
-make run-tax
+go run cmd/tax-service/main.go
 
 # Terminal 4 - Reporting Service
-make run-reporting
+go run cmd/reporting-service/main.go
 
 # Terminal 5 - Notification Service
-make run-notification
+go run cmd/notification-service/main.go
 
 # Terminal 6 - Auth Service
-make run-auth
+go run cmd/auth-service/main.go
 ```
 
 Option B: Use Docker Compose:
 
 ```bash
-make docker-up
+docker compose --profile dev up
 ```
 
 ### 5. Verify Services
@@ -132,8 +126,8 @@ make docker-up
 # Check API Gateway health
 curl http://localhost:8080/health
 
-# Check all services status
-make docker-ps
+# Check Docker services status
+docker compose ps
 ```
 
 ## Development Workflow
@@ -142,60 +136,62 @@ make docker-ps
 
 ```bash
 # Build all services
-make build
+go build -o bin/api-gateway ./cmd/api-gateway
+go build -o bin/payment-service ./cmd/payment-service
+go build -o bin/tax-service ./cmd/tax-service
+go build -o bin/auth-service ./cmd/auth-service
+go build -o bin/reporting-service ./cmd/reporting-service
+go build -o bin/notification-service ./cmd/notification-service
 
-# Build specific service
-make build-api-gateway
-make build-payment
-# etc.
+# Or build with Docker
+docker compose build
 ```
 
 ### Testing
 
 ```bash
 # Run all tests
-make test
+go test -v ./...
 
 # Run with coverage
-make test-coverage
+go test -v -race -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out -o coverage.html
 
-# Run integration tests
-make test-integration
-
-# Run e2e tests
-make test-e2e
+# Run specific package tests
+go test -v ./internal/payment/...
+go test -v ./pkg/utils/...
 ```
 
 ### Code Quality
 
 ```bash
 # Format code
-make fmt
+go fmt ./...
 
 # Run linter
-make lint
+golangci-lint run
 
-# Run both
-make pre-commit
+# Run tests
+go test -v ./...
 ```
 
 ### Database Migrations
 
 ```bash
 # Create new migration
-make migrate-create name=add_users_table
+migrate create -ext sql -dir migrations -seq add_users_table
 
 # Apply migrations
-make migrate-up
+migrate -path migrations -database "postgresql://postgres:<password>@localhost:5432/excise_tax_db?sslmode=disable" up
 
 # Rollback last migration
-make migrate-down
+migrate -path migrations -database "postgresql://postgres:<password>@localhost:5432/excise_tax_db?sslmode=disable" down 1
 
 # Check migration status
-make migrate-version
+migrate -path migrations -database "postgresql://postgres:<password>@localhost:5432/excise_tax_db?sslmode=disable" version
 
-# Reset database (careful!)
-make db-reset
+# Force to specific version (use with caution)
+migrate -path migrations -database "postgresql://postgres:<password>@localhost:5432/excise_tax_db?sslmode=disable" force <version>
 ```
 
 ## Configuration
@@ -220,11 +216,6 @@ Configuration can be provided via:
 - `DATABASE_PASSWORD`: Database password
 - `DATABASE_NAME`: Database name
 
-#### Redis
-- `REDIS_HOST`: Redis host
-- `REDIS_PORT`: Redis port (default: 6379)
-- `REDIS_PASSWORD`: Redis password (optional)
-
 #### XRPL
 - `XRPL_NETWORK_URL`: XRPL network WebSocket URL
 - `XRPL_WALLET_ADDRESS`: XRPL wallet address
@@ -238,7 +229,6 @@ Configuration can be provided via:
 - `GET /health` - Health check
 - `GET /health/liveness` - Liveness probe
 - `GET /health/readiness` - Readiness probe
-- `GET /metrics` - Prometheus metrics
 
 ### Authentication Endpoints
 
@@ -270,20 +260,20 @@ For detailed API documentation, see [docs/swagger.yaml](docs/swagger.yaml)
 ### Build Images
 
 ```bash
-make docker-build
+docker compose build
 ```
 
 ### Run with Docker Compose
 
 ```bash
 # Start all services
-make docker-up
+docker compose --profile dev up
 
 # View logs
-make docker-logs
+docker compose logs -f
 
 # Stop services
-make docker-down
+docker compose down
 ```
 
 ## Production Deployment
@@ -291,14 +281,13 @@ make docker-down
 ### Prerequisites
 - Kubernetes cluster or Docker Swarm
 - PostgreSQL cluster (managed or self-hosted)
-- Redis cluster
 - Load balancer (NGINX, HAProxy, or cloud LB)
 
 ### Deployment Steps
 
 1. **Build production images**
 ```bash
-make docker-build
+docker compose build
 ```
 
 2. **Push to container registry**
@@ -314,9 +303,9 @@ kubectl apply -f infrastructure/kubernetes/
 ```
 
 4. **Configure monitoring**
-- Setup Prometheus for metrics
-- Configure Grafana dashboards
-- Setup alerts for critical errors
+- Setup application logging
+- Configure alerts for critical errors
+- Monitor health check endpoints
 
 ## Security Considerations
 
@@ -351,12 +340,11 @@ All services expose:
 - `/health/readiness` - Kubernetes readiness probe
 
 ### Metrics
-Prometheus metrics available at `/metrics`:
-- HTTP request duration
-- Request count by endpoint
+Health check metrics available at `/health`:
+- Service status
+- Database connectivity
+- XRPL connection status
 - Error rates
-- Database connection pool stats
-- Redis cache hit/miss rates
 
 ### Logging
 Structured JSON logging with:
@@ -367,11 +355,11 @@ Structured JSON logging with:
 
 ## Performance Optimization
 
-- **Connection Pooling**: Configured for PostgreSQL and Redis
-- **Caching Strategy**: Multi-level caching (Redis + in-memory)
+- **Connection Pooling**: Configured for PostgreSQL
 - **Database Indexing**: Optimized indexes on frequent queries
 - **Horizontal Scaling**: Stateless services support multiple replicas
 - **XRPL Integration**: Async payment processing with webhooks
+- **Efficient Queries**: Optimized SQL queries with proper indexes
 
 ## Troubleshooting
 
@@ -380,27 +368,22 @@ Structured JSON logging with:
 **Database connection failed**
 ```bash
 # Check database is running
-make db-console
+docker ps | grep postgres
 
-# Verify DATABASE_URL in .env
-echo $DATABASE_URL
-```
+# Check connection
+docker exec -it excise-tax-postgres psql -U postgres -d excise_tax_db
 
-**Redis connection failed**
-```bash
-# Test Redis connection
-redis-cli ping
-
-# Check REDIS_HOST and REDIS_PORT
+# Verify credentials in .env
+cat .env | grep POSTGRES
 ```
 
 **Migration errors**
 ```bash
 # Check migration version
-make migrate-version
+migrate -path migrations -database "postgresql://postgres:<password>@localhost:5432/excise_tax_db?sslmode=disable" version
 
-# Force to specific version
-make migrate-force version=1
+# Force to specific version (use with caution)
+migrate -path migrations -database "postgresql://postgres:<password>@localhost:5432/excise_tax_db?sslmode=disable" force <version>
 ```
 
 **Build errors**
@@ -416,7 +399,7 @@ go mod download
 
 1. Follow Go coding standards and conventions
 2. Write tests for new features
-3. Run `make pre-commit` before committing
+3. Run tests and linter before committing
 4. Update documentation for API changes
 5. Follow semantic versioning for releases
 

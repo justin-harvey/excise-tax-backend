@@ -2,8 +2,6 @@ package repository
 
 import (
 	"context"
-	"database/sql"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -121,7 +119,7 @@ func (r *PaymentRepository) GetPaymentByID(ctx context.Context, id int64) (*mode
 		return nil, fmt.Errorf("failed to get payment: %w", err)
 	}
 
-	if xrpl.ID.Valid {
+	if xrpl.ID > 0 {
 		hasXRPL = true
 		result.XRPLPayment = &xrpl
 	}
@@ -258,7 +256,7 @@ func (r *PaymentRepository) GetPaymentsByManufacturer(ctx context.Context, manuf
 			return nil, fmt.Errorf("failed to scan payment: %w", err)
 		}
 
-		if xrpl.ID.Valid {
+		if xrpl.ID > 0 {
 			p.XRPLPayment = &xrpl
 		}
 
@@ -411,19 +409,13 @@ func (r *PaymentRepository) GetLatestExchangeRate(ctx context.Context, source st
 
 // SaveAggregatedExchangeRate saves the aggregated exchange rate with source details.
 func (r *PaymentRepository) SaveAggregatedExchangeRate(ctx context.Context, rate float64, sources []map[string]interface{}) error {
-	// Convert sources to JSON
-	sourcesJSON, err := json.Marshal(sources)
-	if err != nil {
-		return fmt.Errorf("failed to marshal sources: %w", err)
-	}
-
 	query := `
 		INSERT INTO exchange_rates (
 			source, xrp_usd_rate, timestamp, created_at
 		) VALUES ($1, $2, $3, $4)
 	`
 
-	_, err = r.db.Exec(ctx, query,
+	_, err := r.db.Exec(ctx, query,
 		model.ExchangeSourceAggregated,
 		rate,
 		time.Now(),

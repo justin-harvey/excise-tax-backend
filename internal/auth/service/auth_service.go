@@ -23,21 +23,18 @@ var (
 
 // AuthService handles authentication business logic
 type AuthService struct {
-	userRepo    *repository.UserRepository
-	sessionRepo *repository.SessionRepository
-	jwtManager  *utils.JWTManager
+	userRepo   *repository.UserRepository
+	jwtManager *utils.JWTManager
 }
 
 // NewAuthService creates a new authentication service
 func NewAuthService(
 	userRepo *repository.UserRepository,
-	sessionRepo *repository.SessionRepository,
 	jwtManager *utils.JWTManager,
 ) *AuthService {
 	return &AuthService{
-		userRepo:    userRepo,
-		sessionRepo: sessionRepo,
-		jwtManager:  jwtManager,
+		userRepo:   userRepo,
+		jwtManager: jwtManager,
 	}
 }
 
@@ -151,21 +148,7 @@ func (s *AuthService) Login(ctx context.Context, req *LoginRequest) (*model.Toke
 		return nil, nil, fmt.Errorf("failed to generate refresh token: %w", err)
 	}
 
-	// Create session
-	session := &model.Session{
-		UserID:       user.ID,
-		Email:        user.Email,
-		Role:         user.Role,
-		RefreshToken: refreshToken,
-		IPAddress:    req.IPAddress,
-		UserAgent:    req.UserAgent,
-		ExpiresAt:    time.Now().Add(7 * 24 * time.Hour), // 7 days
-		CreatedAt:    time.Now(),
-	}
-
-	if err := s.sessionRepo.CreateSession(ctx, session); err != nil {
-		return nil, nil, fmt.Errorf("failed to create session: %w", err)
-	}
+	// Stateless JWT auth - no session storage needed
 
 	// Update last login
 	if err := s.userRepo.UpdateLastLogin(ctx, user.ID); err != nil {
@@ -182,16 +165,9 @@ func (s *AuthService) Login(ctx context.Context, req *LoginRequest) (*model.Toke
 	return tokenPair, user, nil
 }
 
-// Logout invalidates a user's session
+// Logout invalidates a user's session (stateless - noop)
 func (s *AuthService) Logout(ctx context.Context, sessionID string) error {
-	if sessionID == "" {
-		return fmt.Errorf("%w: session ID is required", ErrInvalidInput)
-	}
-
-	if err := s.sessionRepo.DeleteSession(ctx, sessionID); err != nil {
-		return fmt.Errorf("failed to delete session: %w", err)
-	}
-
+	// Stateless JWT auth - client simply discards token
 	return nil
 }
 
@@ -202,20 +178,11 @@ func (s *AuthService) LogoutAll(ctx context.Context, userID int64) error {
 	}
 
 	return nil
-}
-
-// RefreshToken renews an access token using a refresh token
-func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (*model.TokenPair, error) {
-	// Validate refresh token
-	claims, err := s.jwtManager.ValidateRefreshToken(refreshToken)
+} (stateless - noop)
+func (s *AuthService) LogoutAll(ctx context.Context, userID int64) error {
+	// Stateless JWT auth - client simply discards tokens	claims, err := s.jwtManager.ValidateRefreshToken(refreshToken)
 	if err != nil {
 		return nil, fmt.Errorf("%w: invalid refresh token", ErrUnauthorized)
-	}
-
-	// Verify session exists
-	session, err := s.sessionRepo.GetSessionByRefreshToken(ctx, claims.UserID, refreshToken)
-	if err != nil {
-		return nil, fmt.Errorf("%w: session not found", ErrUnauthorized)
 	}
 
 	// Get updated user information
@@ -248,12 +215,7 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (*m
 		return nil, fmt.Errorf("failed to generate refresh token: %w", err)
 	}
 
-	// Update session with new refresh token
-	session.RefreshToken = newRefreshToken
-	session.ExpiresAt = time.Now().Add(7 * 24 * time.Hour)
-	if err := s.sessionRepo.UpdateSession(ctx, session); err != nil {
-		return nil, fmt.Errorf("failed to update session: %w", err)
-	}
+	// Stateless JWT auth - no session updates needed
 
 	tokenPair := &model.TokenPair{
 		AccessToken:  accessToken,
@@ -308,8 +270,7 @@ func (s *AuthService) ChangePassword(ctx context.Context, req *ChangePasswordReq
 		return fmt.Errorf("failed to update password: %w", err)
 	}
 
-	// Invalidate all sessions (force re-login)
-	_ = s.sessionRepo.DeleteAllUserSessions(ctx, req.UserID)
+	// Stateless JWT auth - no sessions to invalidate (client will need to re-login)
 
 	return nil
 }
@@ -336,8 +297,7 @@ func (s *AuthService) ResetPassword(ctx context.Context, email, newPassword stri
 		return fmt.Errorf("failed to update password: %w", err)
 	}
 
-	// Invalidate all sessions
-	_ = s.sessionRepo.DeleteAllUserSessions(ctx, user.ID)
+	// Stateless JWT auth - no sessions to invalidate (client will need to re-login)
 
 	return nil
 }
@@ -369,12 +329,8 @@ func (s *AuthService) CheckRole(ctx context.Context, userID int64, role string) 
 	return user.Role == role, nil
 }
 
-// GetActiveSessions returns all active sessions for a user
+// GetActiveSessions returns all active sessions for a user (stateless - returns empty)
 func (s *AuthService) GetActiveSessions(ctx context.Context, userID int64) ([]*model.Session, error) {
-	sessions, err := s.sessionRepo.GetActiveSessions(ctx, userID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get active sessions: %w", err)
-	}
-
-	return sessions, nil
+	// Stateless JWT auth - no sessions to track
+	return []*model.Session{}, nil
 }

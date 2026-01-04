@@ -4,7 +4,6 @@ package main
 import (
 	"context"
 	"fmt"
-	t "go.uber.org/zap"
 	"log"
 	"net/http"
 	"os"
@@ -16,7 +15,6 @@ import (
 	"github.com/excise-tax-portal/backend/internal/auth/middleware"
 	"github.com/excise-tax-portal/backend/internal/auth/repository"
 	"github.com/excise-tax-portal/backend/internal/auth/service"
-	"github.com/excise-tax-portal/backend/pkg/cache"
 	"github.com/excise-tax-portal/backend/pkg/database"
 	"github.com/excise-tax-portal/backend/pkg/utils"
 
@@ -53,28 +51,6 @@ func main() {
 	defer db.Close()
 	log.Println("Database connection established")
 
-	// Initialize Redis cache
-	cacheConfig := &cache.Config{
-		Host:            config.RedisHost,
-		Port:            config.RedisPort,
-		Password:        config.RedisPassword,
-		DB:              0,
-		MaxRetries:      3,
-		MinIdleConns:    5,
-		PoolSize:        10,
-		ConnMaxIdleTime: 5 * time.Minute,
-		DialTimeout:     5 * time.Second,
-		ReadTimeout:     3 * time.Second,
-		WriteTimeout:    3 * time.Second,
-	}
-
-	redisClient, err := cache.NewRedisClient(ctx, cacheConfig)
-	if err != nil {
-		log.Fatalf("Failed to connect to Redis: %v", err)
-	}
-	defer redisClient.Close()
-	log.Println("Redis connection established")
-
 	// Initialize JWT manager
 	jwtConfig := &utils.JWTConfig{
 		SecretKey:            config.JWTSecret,
@@ -91,10 +67,9 @@ func main() {
 
 	// Initialize repositories
 	userRepo := repository.NewUserRepository(db)
-	sessionRepo := repository.NewSessionRepository(redisClient)
 
-	// Initialize services
-	authService := service.NewAuthService(userRepo, sessionRepo, jwtManager)
+	// Initialize services (no session repository - using stateless JWT only)
+	authService := service.NewAuthService(userRepo, nil, jwtManager)
 
 	// Initialize OAuth service (optional)
 	var oauthService *service.OAuthService
@@ -247,9 +222,6 @@ type Config struct {
 	DBPassword        string
 	DBName            string
 	DBSSLMode         string
-	RedisHost         string
-	RedisPort         int
-	RedisPassword     string
 	JWTSecret         string
 	CORSOrigins       []string
 	OAuthEnabled      bool
@@ -272,9 +244,6 @@ func loadConfig() *Config {
 		DBPassword:        getEnv("DB_PASSWORD", ""),
 		DBName:            getEnv("DB_NAME", "excise_tax"),
 		DBSSLMode:         getEnv("DB_SSL_MODE", "disable"),
-		RedisHost:         getEnv("REDIS_HOST", "localhost"),
-		RedisPort:         getEnvAsInt("REDIS_PORT", 6379),
-		RedisPassword:     getEnv("REDIS_PASSWORD", ""),
 		JWTSecret:         getEnv("JWT_SECRET", "your-secret-key-change-in-production"),
 		CORSOrigins:       []string{getEnv("CORS_ORIGIN", "http://localhost:3000")},
 		OAuthEnabled:      getEnv("OAUTH_ENABLED", "false") == "true",

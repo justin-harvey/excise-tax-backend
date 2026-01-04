@@ -9,7 +9,7 @@ import (
 	"syscall"
 	"time"
 
-	t "go.uber.org/zap"
+	"go.uber.org/zap"
 
 	"github.com/excise-tax-portal/backend/pkg/config"
 	"github.com/excise-tax-portal/backend/pkg/logger"

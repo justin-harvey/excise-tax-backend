@@ -3,7 +3,6 @@ package router
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 
 	"github.com/excise-tax-portal/backend/internal/api-gateway/handler"
@@ -51,11 +50,6 @@ func Setup(config Config) *gin.Engine {
 	router.GET("/health/liveness", config.HealthHandler.Liveness)
 	router.GET("/health/readiness", config.HealthHandler.Readiness)
 
-	// Metrics endpoint (Prometheus format)
-	if config.EnableMetrics {
-		router.GET("/metrics", gin.WrapH(promhttp.Handler()))
-	}
-
 	// API v1 routes
 	v1 := router.Group("/api/v1")
 	{
@@ -82,7 +76,6 @@ func Setup(config Config) *gin.Engine {
 		// Payment service routes (authentication required)
 		paymentGroup := v1.Group("/payments")
 		paymentGroup.Use(middleware.Auth(config.AuthConfig, config.Logger))
-		paymentGroup.Use(config.RateLimiter.RateLimit())
 		{
 			paymentGroup.POST("", config.ServiceProxy.ProxyRequest("payment", "/api/v1/payments"))
 			paymentGroup.GET("/:id", config.ServiceProxy.ProxyRequest("payment", "/api/v1/payments"))
@@ -94,7 +87,6 @@ func Setup(config Config) *gin.Engine {
 		// Tax service routes (authentication required)
 		taxGroup := v1.Group("/tax")
 		taxGroup.Use(middleware.Auth(config.AuthConfig, config.Logger))
-		taxGroup.Use(config.RateLimiter.RateLimit())
 		{
 			// Tax calculations
 			taxGroup.POST("/calculate", config.ServiceProxy.ProxyRequest("tax", "/api/v1/tax"))
@@ -116,7 +108,6 @@ func Setup(config Config) *gin.Engine {
 		reportGroup := v1.Group("/reports")
 		reportGroup.Use(middleware.Auth(config.AuthConfig, config.Logger))
 		reportGroup.Use(config.RateLimiter.RateLimit())
-		{
 			reportGroup.POST("/generate", config.ServiceProxy.ProxyRequest("reporting", "/api/v1/reports"))
 			reportGroup.GET("/:id", config.ServiceProxy.ProxyRequest("reporting", "/api/v1/reports"))
 			reportGroup.GET("", config.ServiceProxy.ProxyRequest("reporting", "/api/v1/reports"))
@@ -128,7 +119,6 @@ func Setup(config Config) *gin.Engine {
 		adminGroup := v1.Group("/admin")
 		adminGroup.Use(middleware.Auth(config.AuthConfig, config.Logger))
 		adminGroup.Use(middleware.RequireRole("admin", config.Logger))
-		adminGroup.Use(config.RateLimiter.RateLimit())
 		{
 			// User management
 			adminGroup.GET("/users", config.ServiceProxy.ProxyRequest("auth", "/api/v1/admin"))

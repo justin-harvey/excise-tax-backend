@@ -16,7 +16,7 @@ services:
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./migrations:/docker-entrypoint-initdb.d:ro
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
       - excise-tax-network
     healthcheck:
