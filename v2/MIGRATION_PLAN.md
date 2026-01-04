@@ -199,6 +199,144 @@ go test -race ./...
 
 ---
 
+## Phase 1.5: Tax CLI Tool (Week 2.5-3) ✅ COMPLETE
+
+**Goal:** Build tax calculation CLI tool following the same Unix philosophy as XRPL CLI
+
+### 1.5.1 Tax CLI Design
+
+Following the same pattern as XRPL CLI, build a focused tool for excise tax calculations:
+
+```
+v2/
+├── cmd/
+│   └── tax-cli/
+│       ├── main.go              # CLI entry point
+│       ├── example_production.json # Example data
+│       └── README.md            # Documentation
+├── internal/
+│   └── tax/
+│       ├── types.go             # Tax domain types
+│       ├── calculator.go        # Core tax calculation logic
+│       ├── rates.go             # Tax rate loading and defaults
+│       ├── errors.go            # Sentinel errors
+│       ├── calculator_test.go   # Unit tests
+│       └── rates_test.go        # Rate loading tests
+└── pkg/
+    ├── logger/                  # Shared logging (from XRPL CLI)
+    └── config/                  # Shared config (from XRPL CLI)
+```
+
+### 1.5.2 Tax CLI Implementation Checklist
+
+#### Core Types (`internal/tax/types.go`)
+- [x] `ProductType` enum (beer, wine, spirits, other)
+- [x] `UnitType` enum (gallon, barrel, case, liter)
+- [x] `TaxRate` struct with jurisdiction and date ranges
+- [x] `ProductionItem` struct for individual products
+- [x] `ProductionData` struct for collections
+- [x] `TaxCalculation` result struct with breakdown
+- [x] JSON tags for all structs
+
+#### Tax Calculation Engine (`internal/tax/calculator.go`)
+- [x] Pure function design with no side effects
+- [x] `Calculate(ctx, data, jurisdiction, date) (*TaxCalculation, error)`
+- [x] `CalculateForItem()` convenience method
+- [x] `GetRate()` for looking up specific rates
+- [x] `GetAllRates()` for listing available rates
+- [x] Input validation with detailed error messages
+- [x] Context-aware operations
+- [x] Thread-safe concurrent access
+- [x] Functional options pattern for configuration
+
+#### Tax Rates (`internal/tax/rates.go`)
+- [x] `DefaultFederalRates()` with current federal rates
+- [x] `LoadRatesFromJSON(filename)` for custom rates
+- [x] Rate validation on load
+- [x] Support for effective/expiration dates
+- [x] Multiple jurisdiction support
+
+#### CLI Commands (`cmd/tax-cli/main.go`)
+- [x] `calculate <file>` - Calculate tax from production data
+- [x] `rates` - List all available tax rates
+- [x] `rate <type> <unit>` - Get specific tax rate
+- [x] `validate <file>` - Validate production data
+- [x] `help` - Show usage information
+- [x] Support for stdin with `-` argument
+- [x] JSON output with `--json` flag
+- [x] Custom rates file with `--rates` flag
+- [x] Jurisdiction selection with `--jurisdiction`
+- [x] Historical calculations with `--date`
+- [x] Verbose logging with `-v`
+
+#### Error Handling
+- [x] Sentinel errors: `ErrInvalidProductType`, `ErrNoTaxRate`, etc.
+- [x] Custom error types with context
+- [x] Proper exit codes: 0 (success), 1 (error), 2 (usage), 3 (validation)
+- [x] User-friendly error messages
+
+#### Testing
+- [x] Unit tests for calculator logic
+- [x] Rate loading tests
+- [x] Validation tests
+- [x] Error condition tests
+- [x] All tests passing
+
+### 1.5.3 Success Criteria
+
+**✅ Tax CLI Complete!**
+
+```bash
+# Calculate tax from production file
+./tax-cli calculate production.json
+# Tax Calculation Results
+# Total Tax: $1975.00
+
+# Calculate with JSON output (for scripting)
+./tax-cli calculate production.json --json
+# {"total_tax_amount": 1975, "breakdown_by_product": [...]}
+
+# Unix filter pattern
+cat production.json | ./tax-cli calculate -
+
+# List available rates
+./tax-cli rates
+
+# Get specific rate
+./tax-cli rate beer barrel
+# Rate: $18.00 per barrel
+
+# Validate production data
+./tax-cli validate production.json
+# ✓ Production data is valid
+
+# Test with invalid data
+echo '{"items":[{"product_type":"invalid",...}]}' | ./tax-cli validate -
+# ✗ Validation failed: invalid product type
+# exit code: 3
+
+# All tests pass
+go test ./internal/tax/...
+# PASS
+```
+
+**Tax CLI Achievements:**
+- ✅ Complete tax calculation engine with pure functions
+- ✅ Federal excise tax rates (beer, wine, spirits)
+- ✅ JSON input/output for automation
+- ✅ Unix filter pattern support (stdin/stdout)
+- ✅ Comprehensive validation with detailed errors
+- ✅ Proper exit codes for scripting
+- ✅ Full test coverage
+- ✅ Documentation with examples
+- ✅ Custom rates file support
+- ✅ Multi-jurisdiction support
+- ✅ Historical date calculations
+
+**Ready for Phase 2:** Extract both XRPL and Tax libraries!
+
+---
+
 ## Phase 2: Extractable Library (Week 3) ✅ COMPLETE
 
 **Goal:** Extract reusable components that can be imported by other programs
@@ -1233,6 +1371,7 @@ func (app *Application) createPaymentHandler(w http.ResponseWriter, r *http.Requ
 | Phase | Duration | Deliverable |
 |-------|----------|-------------|
 | 1. XRPL CLI ✅ | 2 weeks | Working CLI tool |
+| 1.5. Tax CLI ✅ | 0.5 weeks | Working tax CLI tool |
 | 2. Library ✅ | 1 week | Reusable XRPL package |
 | 3. HTTP RESTful API | 2 weeks | API + OpenAPI + Swagger UI |
 | 4. Database Layer | 1 week | Repository layer |
@@ -1242,7 +1381,7 @@ func (app *Application) createPaymentHandler(w http.ResponseWriter, r *http.Requ
 | 8. Observability | 1 week | Logging & monitoring |
 | 9. Testing | 1 week | Full test suite |
 | 10. Production | 2 weeks | Live in production |
-| **Total** | **14 weeks** | **V2 in Production** |
+| **Total** | **14.5 weeks** | **V2 in Production** |
 
 ---
 

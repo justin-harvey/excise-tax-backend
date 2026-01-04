@@ -1,0 +1,28 @@
+{
+  "items": [
+    {
+      "product_type": "beer",
+      "product_name": "West Coast IPA",
+      "unit_type": "barrel",
+      "quantity": 50,
+      "abv": 6.8,
+      "notes": "Q1 2024 production"
+    },
+    {
+      "product_type": "beer",
+      "product_name": "Pilsner",
+      "unit_type": "barrel",
+      "quantity": 30,
+      "abv": 4.5,
+      "notes": "Q1 2024 production"
+    },
+    {
+      "product_type": "wine",
+      "product_name": "Cabernet Sauvignon",
+      "unit_type": "gallon",
+      "quantity": 500,
+      "abv": 13.5,
+      "notes": "2023 vintage"
+    }
+  ]
+}
