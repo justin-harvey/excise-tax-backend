@@ -47,3 +47,17 @@ type TxResult struct {
 	Status    string      `json:"status"`
 	Tx        Transaction `json:"transaction"`
 }
+
+// StreamMessage represents a streaming message from XRPL subscriptions
+type StreamMessage struct {
+	Type                string                 `json:"type"`
+	Transaction         *Transaction           `json:"transaction,omitempty"`
+	Meta                map[string]interface{} `json:"meta,omitempty"`
+	LedgerIndex         int64                  `json:"ledger_index,omitempty"`
+	LedgerHash          string                 `json:"ledger_hash,omitempty"`
+	LedgerTime          int64                  `json:"ledger_time,omitempty"`
+	Validated           bool                   `json:"validated"`
+	Status              string                 `json:"status,omitempty"`
+	EngineResult        string                 `json:"engine_result,omitempty"`
+	EngineResultMessage string                 `json:"engine_result_message,omitempty"`
+}

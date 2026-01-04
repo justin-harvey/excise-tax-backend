@@ -90,8 +90,9 @@ v2/
 - [ ] **Test**: Mock response, test invalid hash
 - [x] `GetAccountTransactions(address string, limit int) ([]Transaction, error)`
 - [ ] **Test**: Verify pagination, test limits
-- [ ] `SubscribeToAccount(address string) (<-chan Transaction, error)`
-- [ ] **Test**: Mock WebSocket, test channel close
+- [x] `SubscribeToAccount(address string) (<-chan Transaction, error)`
+- [x] **Test**: Test not connected, invalid address
+- [x] `Unsubscribe(address string) error` - Clean unsubscription
 - [ ] `VerifyTransaction(hash string) (*TxStatus, error)`
 - [ ] **Test**: Test validated vs pending states
 
@@ -102,7 +103,7 @@ v2/
 - [x] Write to stdout (data), stderr (errors, logs)
 - [x] Add subcommands: `tx`, `history`
 - [x] Support `--json` flag for machine-readable output
-- [ ] Add subcommand: `subscribe` (real-time monitoring)
+- [x] Add subcommand: `subscribe` (real-time monitoring)
 - [ ] Accept config from flags, env vars, or config file
 - [ ] **Test**: Integration tests with testnet
 

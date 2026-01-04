@@ -285,8 +285,145 @@ func TestNew_URLVariations(t *testing.T) {
 			if client.responses == nil {
 				t.Error("New() client.responses should be initialized")
 			}
+			if client.streams == nil {
+				t.Error("New() client.streams should be initialized")
+			}
 			if client.done == nil {
 				t.Error("New() client.done should be initialized")
+			}
+		})
+	}
+}
+
+// TestSubscribeToAccount_NotConnected tests subscription when not connected
+func TestSubscribeToAccount_NotConnected(t *testing.T) {
+	client := New("wss://test.example.com")
+	ctx := context.Background()
+
+	_, err := client.SubscribeToAccount(ctx, "rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY")
+	if err != ErrNotConnected {
+		t.Errorf("SubscribeToAccount() error = %v, want %v", err, ErrNotConnected)
+	}
+}
+
+// TestSubscribeToAccount_InvalidAddress tests subscription with invalid address
+func TestSubscribeToAccount_InvalidAddress(t *testing.T) {
+	tests := []struct {
+		name    string
+		address string
+	}{
+		{
+			name:    "empty address",
+			address: "",
+		},
+		{
+			name:    "invalid prefix",
+			address: "xPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY",
+		},
+	}
+
+	client := New("wss://test.example.com")
+	ctx := context.Background()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := client.SubscribeToAccount(ctx, tt.address)
+			// Should get not connected or invalid address error
+			if err != ErrNotConnected && err != ErrInvalidAddress {
+				t.Errorf("SubscribeToAccount() error = %v, want %v or %v", err, ErrNotConnected, ErrInvalidAddress)
+			}
+		})
+	}
+}
+
+// TestUnsubscribe_NotConnected tests unsubscribe when not connected
+func TestUnsubscribe_NotConnected(t *testing.T) {
+	client := New("wss://test.example.com")
+	ctx := context.Background()
+
+	err := client.Unsubscribe(ctx, "rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY")
+	if err != ErrNotConnected {
+		t.Errorf("Unsubscribe() error = %v, want %v", err, ErrNotConnected)
+	}
+}
+
+// TestGetStringField tests the helper function
+func TestGetStringField(t *testing.T) {
+	tests := []struct {
+		name string
+		data map[string]interface{}
+		key  string
+		want string
+	}{
+		{
+			name: "string value",
+			data: map[string]interface{}{"key": "value"},
+			key:  "key",
+			want: "value",
+		},
+		{
+			name: "missing key",
+			data: map[string]interface{}{},
+			key:  "key",
+			want: "",
+		},
+		{
+			name: "non-string value",
+			data: map[string]interface{}{"key": 123},
+			key:  "key",
+			want: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := getStringField(tt.data, tt.key)
+			if got != tt.want {
+				t.Errorf("getStringField() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestGetBoolField tests the helper function
+func TestGetBoolField(t *testing.T) {
+	tests := []struct {
+		name string
+		data map[string]interface{}
+		key  string
+		want bool
+	}{
+		{
+			name: "true value",
+			data: map[string]interface{}{"key": true},
+			key:  "key",
+			want: true,
+		},
+		{
+			name: "false value",
+			data: map[string]interface{}{"key": false},
+			key:  "key",
+			want: false,
+		},
+		{
+			name: "missing key",
+			data: map[string]interface{}{},
+			key:  "key",
+			want: false,
+		},
+		{
+			name: "non-bool value",
+			data: map[string]interface{}{"key": "true"},
+			key:  "key",
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := getBoolField(tt.data, tt.key)
+			if got != tt.want {
+				t.Errorf("getBoolField() = %v, want %v", got, tt.want)
 			}
 		})
 	}

@@ -26,7 +26,9 @@ type Client struct {
 	mu        sync.RWMutex
 	nextID    int
 	responses map[int]chan Response
+	streams   map[string]chan StreamMessage
 	done      chan struct{}
+	streamsMu sync.RWMutex
 }
 
 // New creates a new XRPL client with the given WebSocket URL
@@ -34,6 +36,7 @@ func New(url string) *Client {
 	return &Client{
 		url:       url,
 		responses: make(map[int]chan Response),
+		streams:   make(map[string]chan StreamMessage),
 		done:      make(chan struct{}),
 	}
 }
@@ -300,6 +303,85 @@ func (c *Client) GetAccountTransactions(ctx context.Context, address string, lim
 	return transactions, nil
 }
 
+// SubscribeToAccount subscribes to transaction streams for an account
+func (c *Client) SubscribeToAccount(ctx context.Context, address string) (<-chan StreamMessage, error) {
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+
+	// Basic address validation
+	if len(address) == 0 || address[0] != 'r' {
+		return nil, ErrInvalidAddress
+	}
+
+	// Create channel for streaming messages
+	streamChan := make(chan StreamMessage, 100)
+
+	// Register stream channel
+	c.streamsMu.Lock()
+	c.streams[address] = streamChan
+	c.streamsMu.Unlock()
+
+	// Send subscribe request
+	req := map[string]interface{}{
+		"command":  "subscribe",
+		"accounts": []string{address},
+	}
+
+	resp, err := c.sendRequest(ctx, req)
+	if err != nil {
+		// Clean up on error
+		c.streamsMu.Lock()
+		delete(c.streams, address)
+		c.streamsMu.Unlock()
+		close(streamChan)
+		return nil, fmt.Errorf("failed to subscribe: %w", err)
+	}
+
+	if resp.Status != "success" {
+		// Clean up on error
+		c.streamsMu.Lock()
+		delete(c.streams, address)
+		c.streamsMu.Unlock()
+		close(streamChan)
+		return nil, fmt.Errorf("subscribe failed: %s", resp.Error)
+	}
+
+	return streamChan, nil
+}
+
+// Unsubscribe unsubscribes from transaction streams for an account
+func (c *Client) Unsubscribe(ctx context.Context, address string) error {
+	if !c.IsConnected() {
+		return ErrNotConnected
+	}
+
+	// Send unsubscribe request
+	req := map[string]interface{}{
+		"command":  "unsubscribe",
+		"accounts": []string{address},
+	}
+
+	resp, err := c.sendRequest(ctx, req)
+	if err != nil {
+		return fmt.Errorf("failed to unsubscribe: %w", err)
+	}
+
+	if resp.Status != "success" {
+		return fmt.Errorf("unsubscribe failed: %s", resp.Error)
+	}
+
+	// Clean up stream channel
+	c.streamsMu.Lock()
+	if ch, ok := c.streams[address]; ok {
+		close(ch)
+		delete(c.streams, address)
+	}
+	c.streamsMu.Unlock()
+
+	return nil
+}
+
 // sendRequest sends a request and waits for the response
 func (c *Client) sendRequest(ctx context.Context, req map[string]interface{}) (*Response, error) {
 	c.mu.Lock()
@@ -359,8 +441,6 @@ func (c *Client) readLoop() {
 		case <-c.done:
 			return
 		default:
-			var resp Response
-
 			c.mu.RLock()
 			conn := c.conn
 			c.mu.RUnlock()
@@ -369,22 +449,102 @@ func (c *Client) readLoop() {
 				return
 			}
 
-			if err := conn.ReadJSON(&resp); err != nil {
+			// Read raw message
+			var rawMsg map[string]interface{}
+			if err := conn.ReadJSON(&rawMsg); err != nil {
 				// Connection closed or error
 				return
 			}
 
-			// Route response to waiting request
-			c.mu.RLock()
-			if ch, ok := c.responses[resp.ID]; ok {
-				select {
-				case ch <- resp:
-				default:
+			// Check if it's a regular response or stream message
+			if msgType, ok := rawMsg["type"].(string); ok && msgType == "transaction" {
+				// Handle streaming transaction
+				c.handleStreamMessage(rawMsg)
+			} else if id, ok := rawMsg["id"].(float64); ok {
+				// Handle regular response
+				resp := Response{
+					ID:     int(id),
+					Status: getStringField(rawMsg, "status"),
+					Type:   getStringField(rawMsg, "type"),
+					Error:  getStringField(rawMsg, "error"),
 				}
+				if result, ok := rawMsg["result"].(map[string]interface{}); ok {
+					resp.Result = result
+				}
+
+				c.mu.RLock()
+				if ch, ok := c.responses[resp.ID]; ok {
+					select {
+					case ch <- resp:
+					default:
+					}
+				}
+				c.mu.RUnlock()
 			}
-			c.mu.RUnlock()
 		}
 	}
+}
+
+// handleStreamMessage processes streaming messages from subscriptions
+func (c *Client) handleStreamMessage(rawMsg map[string]interface{}) {
+	msg := StreamMessage{
+		Type:                getStringField(rawMsg, "type"),
+		Validated:           getBoolField(rawMsg, "validated"),
+		Status:              getStringField(rawMsg, "status"),
+		EngineResult:        getStringField(rawMsg, "engine_result"),
+		EngineResultMessage: getStringField(rawMsg, "engine_result_message"),
+	}
+
+	// Extract transaction details if present
+	if txData, ok := rawMsg["transaction"].(map[string]interface{}); ok {
+		tx := &Transaction{
+			Hash:            getStringField(txData, "hash"),
+			TransactionType: getStringField(txData, "TransactionType"),
+			Account:         getStringField(txData, "Account"),
+			Destination:     getStringField(txData, "Destination"),
+			Fee:             getStringField(txData, "Fee"),
+		}
+		if amount := txData["Amount"]; amount != nil {
+			tx.Amount = amount
+		}
+		if date, ok := txData["date"].(float64); ok {
+			tx.Date = int64(date)
+		}
+		if seq, ok := txData["Sequence"].(float64); ok {
+			tx.Sequence = int64(seq)
+		}
+		tx.Validated = msg.Validated
+		msg.Transaction = tx
+	}
+
+	// Route to subscription channels based on account
+	if msg.Transaction != nil {
+		account := msg.Transaction.Account
+		c.streamsMu.RLock()
+		if ch, ok := c.streams[account]; ok {
+			select {
+			case ch <- msg:
+			default:
+				// Channel full, drop message
+			}
+		}
+		c.streamsMu.RUnlock()
+	}
+}
+
+// Helper functions to extract fields from raw messages
+func getStringField(m map[string]interface{}, key string) string {
+	if v, ok := m[key].(string); ok {
+		return v
+	}
+	return ""
+}
+
+func getBoolField(m map[string]interface{}, key string) bool {
+	if v, ok := m[key].(bool); ok {
+		return v
+	}
+	return false
 }
 
 // DropsToXRP converts drops (smallest unit) to XRP

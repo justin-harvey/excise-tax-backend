@@ -6,6 +6,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/maxfelker/excise-tax-backend/v2/internal/xrpl"
@@ -87,6 +89,8 @@ func run() error {
 		return handleTransaction(ctx, client, args[1:])
 	case "history":
 		return handleHistory(ctx, client, args[1:])
+	case "subscribe":
+		return handleSubscribe(ctx, client, args[1:])
 	case "help", "--help", "-h":
 		usage()
 		return nil
@@ -320,6 +324,112 @@ func handleHistory(ctx context.Context, client *xrpl.Client, args []string) erro
 	return nil
 }
 
+func handleSubscribe(ctx context.Context, client *xrpl.Client, args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("usage: xrpl-cli subscribe <address>")
+	}
+
+	address := args[0]
+
+	fmt.Fprintf(os.Stderr, "Subscribing to transactions for %s...\n", address)
+
+	streamChan, err := client.SubscribeToAccount(ctx, address)
+	if err != nil {
+		return fmt.Errorf("failed to subscribe: %w", err)
+	}
+
+	fmt.Fprintf(os.Stderr, "Subscribed! Listening for transactions (Press Ctrl+C to stop)...\n\n")
+
+	// Set up signal handling for graceful shutdown
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	// Listen for transactions
+	for {
+		select {
+		case msg, ok := <-streamChan:
+			if !ok {
+				return fmt.Errorf("subscription channel closed")
+			}
+
+			if jsonOutput {
+				if err := printJSON(msg); err != nil {
+					fmt.Fprintf(os.Stderr, "Error encoding JSON: %v\n", err)
+				}
+			} else {
+				printStreamMessage(msg)
+			}
+
+		case <-sigChan:
+			fmt.Fprintf(os.Stderr, "\nUnsubscribing...\n")
+			if err := client.Unsubscribe(ctx, address); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to unsubscribe: %v\n", err)
+			}
+			return nil
+
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
+func printStreamMessage(msg xrpl.StreamMessage) {
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Printf("New Transaction: %s\n", msg.Type)
+
+	if msg.Transaction != nil {
+		tx := msg.Transaction
+		fmt.Printf("  Hash:      %s\n", tx.Hash)
+		fmt.Printf("  Type:      %s\n", tx.TransactionType)
+		fmt.Printf("  From:      %s\n", tx.Account)
+
+		if tx.Destination != "" {
+			fmt.Printf("  To:        %s\n", tx.Destination)
+		}
+
+		if tx.Amount != nil {
+			switch amount := tx.Amount.(type) {
+			case string:
+				xrp, err := xrpl.DropsToXRP(amount)
+				if err == nil {
+					fmt.Printf("  Amount:    %s XRP\n", xrp)
+				}
+			default:
+				fmt.Printf("  Amount:    %v\n", amount)
+			}
+		}
+
+		if tx.Fee != "" {
+			feeXRP, err := xrpl.DropsToXRP(tx.Fee)
+			if err == nil {
+				fmt.Printf("  Fee:       %s XRP\n", feeXRP)
+			}
+		}
+
+		if tx.Date > 0 {
+			unixTime := tx.Date + 946684800
+			t := time.Unix(unixTime, 0)
+			fmt.Printf("  Date:      %s\n", t.Format(time.RFC3339))
+		}
+	}
+
+	fmt.Printf("  Validated: %v\n", msg.Validated)
+
+	if msg.Status != "" {
+		fmt.Printf("  Status:    %s\n", msg.Status)
+	}
+
+	if msg.EngineResult != "" {
+		fmt.Printf("  Result:    %s\n", msg.EngineResult)
+		if msg.EngineResultMessage != "" {
+			fmt.Printf("  Message:   %s\n", msg.EngineResultMessage)
+		}
+	}
+
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println()
+}
+
 // printJSON outputs data as formatted JSON to stdout
 func printJSON(data interface{}) error {
 	encoder := json.NewEncoder(os.Stdout)
@@ -338,6 +448,7 @@ Commands:
   info <address>            Get detailed account information
   tx <hash>                 Get transaction details by hash
   history <address> [limit] Get transaction history (default limit: 10)
+  subscribe <address>       Subscribe to real-time transactions for an account
   help                      Show this help message
 
 Options:
@@ -357,6 +468,12 @@ Examples:
 
   # Get last 20 transactions in JSON
   xrpl-cli -json history rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY 20
+
+  # Subscribe to real-time transactions
+  xrpl-cli subscribe rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY
+
+  # Subscribe with JSON output for processing
+  xrpl-cli -json subscribe rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY
 
   # Use as Unix filter (extract just the number)
   xrpl-cli balance rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY | cut -d' ' -f1
