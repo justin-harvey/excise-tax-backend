@@ -12,10 +12,10 @@ import (
 
 const (
 	// Exit codes
-	exitOK       = 0
-	exitError    = 1
-	exitUsage    = 2
-	
+	exitOK    = 0
+	exitError = 1
+	exitUsage = 2
+
 	// XRPL network URLs
 	testnetURL = "wss://s.altnet.rippletest.net:51233"
 	mainnetURL = "wss://xrplcluster.com"
@@ -43,7 +43,7 @@ func run() error {
 	}
 
 	command := args[0]
-	
+
 	// Determine network URL
 	var url string
 	switch *network {
@@ -57,7 +57,7 @@ func run() error {
 
 	// Create client
 	client := xrpl.New(url)
-	
+
 	// Create context with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
 	defer cancel()
@@ -90,7 +90,7 @@ func handleBalance(ctx context.Context, client *xrpl.Client, args []string) erro
 	}
 
 	address := args[0]
-	
+
 	info, err := client.GetAccountInfo(ctx, address)
 	if err != nil {
 		return fmt.Errorf("failed to get account info: %w", err)
@@ -104,7 +104,7 @@ func handleBalance(ctx context.Context, client *xrpl.Client, args []string) erro
 
 	// Output to stdout (for piping)
 	fmt.Printf("%s XRP\n", xrp)
-	
+
 	return nil
 }
 
@@ -114,7 +114,7 @@ func handleInfo(ctx context.Context, client *xrpl.Client, args []string) error {
 	}
 
 	address := args[0]
-	
+
 	info, err := client.GetAccountInfo(ctx, address)
 	if err != nil {
 		return fmt.Errorf("failed to get account info: %w", err)
@@ -134,7 +134,7 @@ func handleInfo(ctx context.Context, client *xrpl.Client, args []string) error {
 	if info.PreviousTxn != "" {
 		fmt.Printf("Last Tx:  %s\n", info.PreviousTxn)
 	}
-	
+
 	return nil
 }
 

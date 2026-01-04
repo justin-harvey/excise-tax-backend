@@ -58,7 +58,7 @@ func (c *Client) Connect(ctx context.Context) error {
 
 	c.conn = conn
 	c.done = make(chan struct{})
-	
+
 	// Start reading responses in background
 	go c.readLoop()
 
@@ -77,7 +77,7 @@ func (c *Client) Close() error {
 	close(c.done)
 	err := c.conn.Close()
 	c.conn = nil
-	
+
 	return err
 }
 
@@ -100,8 +100,8 @@ func (c *Client) GetAccountInfo(ctx context.Context, address string) (*AccountIn
 	}
 
 	req := map[string]interface{}{
-		"command": "account_info",
-		"account": address,
+		"command":      "account_info",
+		"account":      address,
 		"ledger_index": "validated",
 	}
 
@@ -121,7 +121,7 @@ func (c *Client) GetAccountInfo(ctx context.Context, address string) (*AccountIn
 	}
 
 	info := &AccountInfo{}
-	
+
 	if account, ok := accountData["Account"].(string); ok {
 		info.Account = account
 	}
@@ -144,16 +144,16 @@ func (c *Client) GetAccountInfo(ctx context.Context, address string) (*AccountIn
 // sendRequest sends a request and waits for the response
 func (c *Client) sendRequest(ctx context.Context, req map[string]interface{}) (*Response, error) {
 	c.mu.Lock()
-	
+
 	// Assign unique ID to request
 	c.nextID++
 	id := c.nextID
 	req["id"] = id
-	
+
 	// Create response channel
 	respChan := make(chan Response, 1)
 	c.responses[id] = respChan
-	
+
 	c.mu.Unlock()
 
 	// Clean up on exit
@@ -201,11 +201,11 @@ func (c *Client) readLoop() {
 			return
 		default:
 			var resp Response
-			
+
 			c.mu.RLock()
 			conn := c.conn
 			c.mu.RUnlock()
-			
+
 			if conn == nil {
 				return
 			}
@@ -236,7 +236,7 @@ func DropsToXRP(drops string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	
+
 	// Convert to XRP (1 XRP = 1,000,000 drops)
 	xrp := float64(d) / 1_000_000.0
 	return fmt.Sprintf("%.6f", xrp), nil
