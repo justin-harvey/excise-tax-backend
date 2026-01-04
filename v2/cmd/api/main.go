@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/maxfelker/excise-tax-backend/v2/internal/api"
+	"github.com/maxfelker/excise-tax-backend/v2/internal/tax"
 	"github.com/maxfelker/excise-tax-backend/v2/pkg/logger"
 	"github.com/maxfelker/excise-tax-backend/v2/pkg/xrpl"
 )
@@ -61,8 +62,38 @@ func main() {
 
 	log.Info("connected to XRPL", slog.String("url", cfg.XRPL.URL))
 
+	// Initialize tax calculator with sample rates
+	taxRates := []tax.TaxRate{
+		{
+			ProductType:   tax.ProductTypeBeer,
+			RatePerUnit:   0.58,
+			UnitType:      tax.UnitTypeGallon,
+			EffectiveDate: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
+			Description:   "Federal excise tax on beer",
+			Jurisdiction:  "federal",
+		},
+		{
+			ProductType:   tax.ProductTypeWine,
+			RatePerUnit:   1.07,
+			UnitType:      tax.UnitTypeGallon,
+			EffectiveDate: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
+			Description:   "Federal excise tax on wine",
+			Jurisdiction:  "federal",
+		},
+		{
+			ProductType:   tax.ProductTypeSpirits,
+			RatePerUnit:   13.50,
+			UnitType:      tax.UnitTypeGallon,
+			EffectiveDate: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
+			Description:   "Federal excise tax on distilled spirits",
+			Jurisdiction:  "federal",
+		},
+	}
+
+	taxCalc := tax.NewCalculator(taxRates, tax.WithLogger(log))
+
 	// Create application
-	app := api.NewApplication(cfg, log, xrplClient)
+	app := api.NewApplication(cfg, log, xrplClient, taxCalc)
 
 	// Start server
 	if err := app.Serve(); err != nil {

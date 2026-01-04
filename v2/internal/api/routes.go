@@ -25,6 +25,12 @@ func (app *Application) routes() http.Handler {
 	mux.HandleFunc("GET /xrpl/transactions/{hash}", app.getTransactionHandler)
 	mux.HandleFunc("GET /xrpl/transactions/{hash}/status", app.getTransactionStatusHandler)
 
+	// Tax endpoints
+	mux.HandleFunc("GET /tax/rates", app.getTaxRatesHandler)
+	mux.HandleFunc("POST /tax/calculate", app.calculateTaxHandler)
+	mux.HandleFunc("POST /tax/validate", app.validateProductionDataHandler)
+	mux.HandleFunc("GET /tax/product-types", app.getProductTypesHandler)
+
 	// Wrap with middleware
 	return app.recoverPanic(app.rateLimit(app.enableCORS(app.logRequest(mux))))
 }

@@ -1,13 +1,15 @@
 openapi: 3.0.3
 info:
-  title: XRPL API
+  title: XRPL Excise Tax API
   description: |
-    RESTful API for interacting with the XRP Ledger (XRPL).
+    RESTful API for XRPL integration and excise tax calculations.
     
     This API provides endpoints to:
-    - Query account balances and information
+    - Query account balances and information  
     - Retrieve transaction details and history
     - Verify transaction status
+    - Calculate excise taxes for alcoholic beverage production
+    - Get current tax rates and product types
     
     All CLI functionality is accessible via these REST endpoints.
   version: 1.0.0
@@ -33,6 +35,8 @@ tags:
     description: XRPL account operations
   - name: Transactions
     description: XRPL transaction operations
+  - name: Tax
+    description: Excise tax calculation and rates
 
 paths:
   /health:
@@ -223,6 +227,107 @@ paths:
           $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalError'
+
+  /tax/rates:
+    get:
+      tags:
+        - Tax
+      summary: Get current tax rates
+      description: Retrieves current excise tax rates for all product types
+      operationId: getTaxRates
+      parameters:
+        - name: jurisdiction
+          in: query
+          required: false
+          description: Filter by jurisdiction (e.g., federal, california)
+          schema:
+            type: string
+            example: federal
+      responses:
+        '200':
+          description: Tax rates retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaxRatesResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /tax/calculate:
+    post:
+      tags:
+        - Tax
+      summary: Calculate excise tax
+      description: Calculates excise tax for given production data
+      operationId: calculateTax
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaxCalculationRequest'
+            example:
+              production_data:
+                items:
+                  - product_type: beer
+                    product_name: IPA Batch #123
+                    unit_type: gallon
+                    quantity: 100.5
+                    abv: 6.5
+                    notes: Seasonal IPA
+              jurisdiction: federal
+              effective_date: "2026-01-04T10:00:00Z"
+      responses:
+        '200':
+          description: Tax calculation completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaxCalculationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /tax/validate:
+    post:
+      tags:
+        - Tax
+      summary: Validate production data
+      description: Validates production data without calculating taxes
+      operationId: validateProductionData
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductionDataRequest'
+      responses:
+        '200':
+          description: Validation completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /tax/product-types:
+    get:
+      tags:
+        - Tax
+      summary: Get supported product types
+      description: Returns list of supported alcoholic beverage product types
+      operationId: getProductTypes
+      responses:
+        '200':
+          description: Product types retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductTypesResponse'
 
 components:
   parameters:
@@ -424,6 +529,230 @@ components:
         ledger_index:
           type: integer
           description: Ledger index where transaction was included
+
+    TaxRatesResponse:
+      type: object
+      required:
+        - rates
+      properties:
+        rates:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaxRate'
+
+    TaxRate:
+      type: object
+      required:
+        - product_type
+        - rate_per_unit
+        - unit_type
+        - effective_date
+        - jurisdiction
+      properties:
+        product_type:
+          type: string
+          enum: [beer, wine, spirits, other]
+          example: beer
+        rate_per_unit:
+          type: number
+          format: float
+          description: Tax rate per unit
+          example: 0.58
+        unit_type:
+          type: string
+          enum: [gallon, barrel, case, liter]
+          example: gallon
+        effective_date:
+          type: string
+          format: date-time
+          description: When this rate becomes effective
+        expiration_date:
+          type: string
+          format: date-time
+          nullable: true
+          description: When this rate expires (null = no expiration)
+        description:
+          type: string
+          example: Federal excise tax on beer
+        jurisdiction:
+          type: string
+          example: federal
+
+    TaxCalculationRequest:
+      type: object
+      required:
+        - production_data
+      properties:
+        production_data:
+          $ref: '#/components/schemas/ProductionData'
+        jurisdiction:
+          type: string
+          default: federal
+          example: federal
+        effective_date:
+          type: string
+          format: date-time
+          nullable: true
+          description: Date for tax calculation (null = current time)
+
+    ProductionData:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductionItem'
+
+    ProductionItem:
+      type: object
+      required:
+        - product_type
+        - product_name
+        - unit_type
+        - quantity
+      properties:
+        product_type:
+          type: string
+          enum: [beer, wine, spirits, other]
+        product_name:
+          type: string
+          example: IPA Batch #123
+        unit_type:
+          type: string
+          enum: [gallon, barrel, case, liter]
+        quantity:
+          type: number
+          format: float
+          minimum: 0
+          example: 100.5
+        abv:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 100
+          description: Alcohol by volume (percentage)
+          example: 6.5
+        notes:
+          type: string
+          example: Seasonal IPA
+
+    TaxCalculationResponse:
+      type: object
+      required:
+        - calculation
+      properties:
+        calculation:
+          $ref: '#/components/schemas/TaxCalculation'
+
+    TaxCalculation:
+      type: object
+      required:
+        - total_tax_amount
+        - breakdown_by_product
+        - calculated_at
+        - jurisdiction
+      properties:
+        total_tax_amount:
+          type: number
+          format: float
+          example: 58.29
+        breakdown_by_product:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaxCalculationProduct'
+        calculated_at:
+          type: string
+          format: date-time
+        jurisdiction:
+          type: string
+          example: federal
+
+    TaxCalculationProduct:
+      type: object
+      required:
+        - product_type
+        - product_name
+        - quantity
+        - unit_type
+        - rate_per_unit
+        - tax_amount
+      properties:
+        product_type:
+          type: string
+          enum: [beer, wine, spirits, other]
+        product_name:
+          type: string
+        quantity:
+          type: number
+          format: float
+        unit_type:
+          type: string
+          enum: [gallon, barrel, case, liter]
+        rate_per_unit:
+          type: number
+          format: float
+        tax_amount:
+          type: number
+          format: float
+
+    ProductionDataRequest:
+      type: object
+      required:
+        - production_data
+      properties:
+        production_data:
+          $ref: '#/components/schemas/ProductionData'
+
+    ValidationResponse:
+      type: object
+      required:
+        - valid
+      properties:
+        valid:
+          type: boolean
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationError'
+
+    ValidationError:
+      type: object
+      required:
+        - field
+        - message
+      properties:
+        field:
+          type: string
+          example: items[0].quantity
+        message:
+          type: string
+          example: quantity must be greater than 0
+
+    ProductTypesResponse:
+      type: object
+      required:
+        - product_types
+      properties:
+        product_types:
+          type: array
+          items:
+            type: object
+            required:
+              - type
+              - description
+            properties:
+              type:
+                type: string
+                enum: [beer, wine, spirits, other]
+              description:
+                type: string
+              unit_types:
+                type: array
+                items:
+                  type: string
+                  enum: [gallon, barrel, case, liter]
 
     Error:
       type: object

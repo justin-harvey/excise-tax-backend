@@ -230,3 +230,21 @@ func isValidUnitType(ut UnitType) bool {
 func roundToTwoDecimals(val float64) float64 {
 	return float64(int(val*100+0.5)) / 100
 }
+
+// GetRates returns tax rates, optionally filtered by jurisdiction
+func (c *Calculator) GetRates(jurisdiction string) ([]TaxRate, error) {
+	if jurisdiction == "" {
+		// Return all rates
+		return c.rates, nil
+	}
+
+	// Filter by jurisdiction
+	var filteredRates []TaxRate
+	for _, rate := range c.rates {
+		if rate.Jurisdiction == jurisdiction {
+			filteredRates = append(filteredRates, rate)
+		}
+	}
+
+	return filteredRates, nil
+}

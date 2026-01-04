@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/maxfelker/excise-tax-backend/v2/internal/tax"
 	"github.com/maxfelker/excise-tax-backend/v2/pkg/xrpl"
 )
 
@@ -78,6 +79,10 @@ func (app *Application) infoHandler(w http.ResponseWriter, r *http.Request) {
 			"xrpl_account_transactions",
 			"xrpl_transaction_details",
 			"xrpl_transaction_status",
+			"tax_calculation",
+			"tax_rates",
+			"tax_validation",
+			"tax_product_types",
 		},
 	}
 
@@ -275,5 +280,232 @@ func (app *Application) getTransactionStatusHandler(w http.ResponseWriter, r *ht
 	err = app.writeJSON(w, http.StatusOK, data, nil)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
+	}
+}
+
+// getTaxRatesHandler returns current tax rates
+func (app *Application) getTaxRatesHandler(w http.ResponseWriter, r *http.Request) {
+	jurisdiction := r.URL.Query().Get("jurisdiction")
+
+	rates, err := app.taxCalculator.GetRates(jurisdiction)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	data := envelope{
+		"rates": rates,
+	}
+
+	err = app.writeJSON(w, http.StatusOK, data, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
+
+// calculateTaxHandler calculates tax for production data
+func (app *Application) calculateTaxHandler(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		ProductionData tax.ProductionData `json:"production_data"`
+		Jurisdiction   string             `json:"jurisdiction"`
+		EffectiveDate  *time.Time         `json:"effective_date"`
+	}
+
+	err := app.readJSON(w, r, &input)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	// Set defaults
+	if input.Jurisdiction == "" {
+		input.Jurisdiction = "federal"
+	}
+
+	effectiveDate := time.Now()
+	if input.EffectiveDate != nil {
+		effectiveDate = *input.EffectiveDate
+	}
+
+	// Perform calculation
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+
+	calculation, err := app.taxCalculator.Calculate(ctx, &input.ProductionData, input.Jurisdiction, effectiveDate)
+	if err != nil {
+		if errors.Is(err, tax.ErrNoProductionItems) || errors.Is(err, tax.ErrInvalidProductType) {
+			app.badRequestResponse(w, r, err)
+			return
+		}
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	data := envelope{
+		"calculation": calculation,
+	}
+
+	err = app.writeJSON(w, http.StatusOK, data, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
+
+// validateProductionDataHandler validates production data
+func (app *Application) validateProductionDataHandler(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		ProductionData tax.ProductionData `json:"production_data"`
+	}
+
+	err := app.readJSON(w, r, &input)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	// Validate the production data
+	validationResult := validateProductionData(&input.ProductionData)
+
+	data := envelope{
+		"valid":  validationResult.Valid,
+		"errors": validationResult.Errors,
+	}
+
+	err = app.writeJSON(w, http.StatusOK, data, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
+
+// getProductTypesHandler returns supported product types
+func (app *Application) getProductTypesHandler(w http.ResponseWriter, r *http.Request) {
+	productTypes := []envelope{
+		{
+			"type":        "beer",
+			"description": "Beer and malt beverages",
+			"unit_types":  []string{"gallon", "barrel"},
+		},
+		{
+			"type":        "wine",
+			"description": "Wine and wine products",
+			"unit_types":  []string{"gallon", "liter"},
+		},
+		{
+			"type":        "spirits",
+			"description": "Distilled spirits",
+			"unit_types":  []string{"gallon", "liter"},
+		},
+		{
+			"type":        "other",
+			"description": "Other alcoholic beverages",
+			"unit_types":  []string{"gallon", "liter", "case"},
+		},
+	}
+
+	data := envelope{
+		"product_types": productTypes,
+	}
+
+	err := app.writeJSON(w, http.StatusOK, data, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
+
+// validateProductionData validates production data items
+func validateProductionData(data *tax.ProductionData) tax.ValidationResult {
+	var errors []tax.ValidationError
+
+	if data == nil {
+		return tax.ValidationResult{
+			Valid:  false,
+			Errors: []tax.ValidationError{{Field: "production_data", Message: "production data is required"}},
+		}
+	}
+
+	if len(data.Items) == 0 {
+		return tax.ValidationResult{
+			Valid:  false,
+			Errors: []tax.ValidationError{{Field: "items", Message: "at least one production item is required"}},
+		}
+	}
+
+	for i, item := range data.Items {
+		prefix := fmt.Sprintf("items[%d]", i)
+
+		// Validate product type
+		if item.ProductType == "" {
+			errors = append(errors, tax.ValidationError{
+				Field:   prefix + ".product_type",
+				Message: "product type is required",
+			})
+		} else if !isValidProductType(item.ProductType) {
+			errors = append(errors, tax.ValidationError{
+				Field:   prefix + ".product_type",
+				Message: "invalid product type. Must be one of: beer, wine, spirits, other",
+			})
+		}
+
+		// Validate product name
+		if item.ProductName == "" {
+			errors = append(errors, tax.ValidationError{
+				Field:   prefix + ".product_name",
+				Message: "product name is required",
+			})
+		}
+
+		// Validate unit type
+		if item.UnitType == "" {
+			errors = append(errors, tax.ValidationError{
+				Field:   prefix + ".unit_type",
+				Message: "unit type is required",
+			})
+		} else if !isValidUnitType(item.UnitType) {
+			errors = append(errors, tax.ValidationError{
+				Field:   prefix + ".unit_type",
+				Message: "invalid unit type. Must be one of: gallon, barrel, case, liter",
+			})
+		}
+
+		// Validate quantity
+		if item.Quantity <= 0 {
+			errors = append(errors, tax.ValidationError{
+				Field:   prefix + ".quantity",
+				Message: "quantity must be greater than 0",
+			})
+		}
+
+		// Validate ABV if provided
+		if item.ABV < 0 || item.ABV > 100 {
+			errors = append(errors, tax.ValidationError{
+				Field:   prefix + ".abv",
+				Message: "ABV must be between 0 and 100",
+			})
+		}
+	}
+
+	return tax.ValidationResult{
+		Valid:  len(errors) == 0,
+		Errors: errors,
+	}
+}
+
+// isValidProductType checks if the product type is valid
+func isValidProductType(productType tax.ProductType) bool {
+	switch productType {
+	case tax.ProductTypeBeer, tax.ProductTypeWine, tax.ProductTypeSpirits, tax.ProductTypeOther:
+		return true
+	default:
+		return false
+	}
+}
+
+// isValidUnitType checks if the unit type is valid
+func isValidUnitType(unitType tax.UnitType) bool {
+	switch unitType {
+	case tax.UnitTypeGallon, tax.UnitTypeBarrel, tax.UnitTypeCase, tax.UnitTypeLiter:
+		return true
+	default:
+		return false
 	}
 }
