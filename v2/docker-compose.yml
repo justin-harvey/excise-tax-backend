@@ -101,6 +101,34 @@ services:
     profiles:
       - release
 
+  # Test service - runs tests in isolated environment
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    container_name: excise-tax-test
+    env_file:
+      - .env
+    environment:
+      - APP_ENV=test
+      - CGO_ENABLED=1  # Enable for race detector
+    volumes:
+      - .:/app
+      - go-mod-cache:/go/pkg/mod
+      - test-results:/app/test-results
+    networks:
+      - excise-tax-network
+    profiles:
+      - test
+    command: >
+      sh -c "
+        echo 'Running tests with race detector...' &&
+        go test -v -race -coverprofile=coverage.out -covermode=atomic ./... &&
+        echo 'Tests completed successfully!' &&
+        echo 'Coverage report:' &&
+        go tool cover -func=coverage.out
+      "
+
 networks:
   excise-tax-network:
     name: excise-tax-network
@@ -114,3 +142,5 @@ volumes:
     name: excise-tax-postgres-data
   go-mod-cache:
     name: excise-tax-go-mod-cache
+  test-results:
+    name: excise-tax-test-results

@@ -1,30 +1,12 @@
 FROM golang:1.25-alpine
-
-# Install development tools
 RUN apk add --no-cache git make curl
-
-# Install air for hot reloading
 RUN go install github.com/cosmtrek/air@latest
-
-# Install golang-migrate
 RUN go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
-
-# Install golangci-lint
 RUN go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-
 WORKDIR /app
-
-# Copy go mod files first for caching
 COPY go.mod go.sum ./
 RUN go mod download
-
-# Copy source code
 COPY . .
-
-# Create directory for air to write temp files
 RUN mkdir -p /tmp/air
-
 EXPOSE 8080
-
-# Use air for hot reloading
 ENTRYPOINT ["air", "-c", ".air.toml"]
