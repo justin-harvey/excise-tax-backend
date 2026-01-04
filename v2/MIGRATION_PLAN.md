@@ -66,13 +66,16 @@ v2/
 
 ### 1.2 CLI Implementation Checklist
 
+**Test-Driven Development**: Write tests alongside implementation, not after
+
 #### Core Client (`internal/xrpl/client.go`)
-- [ ] Define `Client` struct with websocket connection
-- [ ] Implement `New(url string) (*Client, error)` constructor
-- [ ] Implement `Connect(ctx context.Context) error` method
-- [ ] Implement `Close() error` for cleanup
-- [ ] Use `context.Context` for cancellation (Let's Go pattern)
-- [ ] Return explicit errors, never panic in library code
+- [x] Define `Client` struct with websocket connection
+- [x] Implement `New(url string) (*Client, error)` constructor
+- [x] Implement `Connect(ctx context.Context) error` method
+- [x] Implement `Close() error` for cleanup
+- [x] Use `context.Context` for cancellation (Let's Go pattern)
+- [x] Return explicit errors, never panic in library code
+- [ ] **Test**: Write `client_test.go` with table-driven tests
 
 #### Connection Management (`internal/xrpl/connection.go`)
 - [ ] Implement reconnection with exponential backoff
@@ -81,19 +84,26 @@ v2/
 - [ ] Implement graceful shutdown with timeout
 
 #### XRPL Operations (`internal/xrpl/client.go`)
-- [ ] `GetAccountInfo(address string) (*AccountInfo, error)`
+- [x] `GetAccountInfo(address string) (*AccountInfo, error)`
+- [x] **Test**: Verify against testnet, test invalid address
+- [ ] `GetTransaction(hash string) (*Transaction, error)`
+- [ ] **Test**: Mock response, test invalid hash
 - [ ] `GetAccountTransactions(address string, limit int) ([]Transaction, error)`
-- [ ] `SubmitTransaction(tx Transaction) (*TxResult, error)`
-- [ ] `VerifyTransaction(hash string) (*TxStatus, error)`
+- [ ] **Test**: Verify pagination, test limits
 - [ ] `SubscribeToAccount(address string) (<-chan Transaction, error)`
+- [ ] **Test**: Mock WebSocket, test channel close
+- [ ] `VerifyTransaction(hash string) (*TxStatus, error)`
+- [ ] **Test**: Test validated vs pending states
 
 #### CLI Commands (`cmd/xrpl-cli/main.go`)
-- [ ] Use `flag` package (standard library first)
-- [ ] Implement subcommands: `connect`, `balance`, `tx`, `subscribe`, `verify`
-- [ ] Exit codes: 0 (success), 1 (error), 2 (usage error)
-- [ ] Write to stdout (data), stderr (errors, logs)
-- [ ] Accept config from flags, env vars, or config file
+- [x] Use `flag` package (standard library first)
+- [x] Implement subcommands: `balance`, `info`
+- [x] Exit codes: 0 (success), 1 (error), 2 (usage error)
+- [x] Write to stdout (data), stderr (errors, logs)
+- [ ] Add subcommands: `tx`, `history`, `subscribe`
 - [ ] Support `--json` flag for machine-readable output
+- [ ] Accept config from flags, env vars, or config file
+- [ ] **Test**: Integration tests with testnet
 
 #### Configuration (`pkg/config/`)
 - [ ] Load from: flags > env vars > config file > defaults
@@ -101,46 +111,53 @@ v2/
 - [ ] Use `os.Getenv()` for environment variables
 - [ ] Validate config at startup, fail fast if invalid
 
-#### Logging (`pkg/logger/`)
-- [ ] Use `slog` package (Go 1.21+)
-- [ ] JSON format for production
-- [ ] Human-readable format for development
-- [ ] Log levels: DEBUG, INFO, WARN, ERROR
-- [ ] Include request IDs, timestamps, caller info
-
-#### Testing
-- [ ] Unit tests for all exported functions
-- [ ] Table-driven tests (idiomatic Go)
-- [ ] Mock XRPL responses for testing
-- [ ] Integration tests against testnet
-- [ ] Test error paths and edge cases
+#### Testing (Continuous) (Continuous)
+- [ ] **Unit tests**: Write alongside each function
+  - [ ] Table-driven tests (idiomatic Go)
+  - [ ] Test error paths and edge cases
+  - [ ] Mock XRPL responses
+- [ ] **Integration tests**: Test against testnet
+  - [ ] Real WebSocket connections
+  - [ ] Actual account queries
+- [ ] Run `go test ./...` after each feature
 - [ ] Aim for >80% coverage
+- [ ] Run `go test -race` to detect race conditions
 
-#### Documentation
-- [ ] README with installation and usage
-- [ ] Code comments for all exported functions
-- [ ] Examples in `examples/` directory
-- [ ] Man page or `--help` output
+#### Documentation (As You Go)
+- [x] README with installation and usage
+- [ ] Update README with each new command
+- [x] Code comments for all exported functions
+- [x] `--help` output with examples
 
 ### 1.3 Success Criteria
 
 ```bash
-# Can connect to XRPL
-./xrpl-cli connect --network testnet
-# Connected to wss://s.altnet.rippletest.net:51233
+# Can query balances (human-readable)
+./xrpl-cli balance rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY
+# 777.495588 XRP
 
-# Can query balances (Unix filter pattern)
-./xrpl-cli balance rN7n7otQDd6FczFgLdlqtyMVrn3NnrcVc3 --json | jq '.balance'
-# "1000000000"
+# Can query balances (JSON output for scripting)
+./xrpl-cli balance rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY --json
+# {"account":"rPEPPER...","balance":"777.495588","balance_drops":"777495588"}
 
-# Can subscribe (streaming data)
-./xrpl-cli subscribe rN7n7otQDd6FczFgLdlqtyMVrn3NnrcVc3
-# 2026-01-03T10:15:30Z Received payment: 100 XRP
+# Can get detailed account info
+./xrpl-cli info rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY
+# Account:  rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY
+# Balance:  777.495588 XRP (777495588 drops)
+# Sequence: 2773480
+
+# Unix filter pattern - pipe output
+./xrpl-cli balance rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY | cut -d' ' -f1
+# 777.495588
 
 # Proper error handling
 ./xrpl-cli balance invalid_address
 # Error: invalid XRPL address format
 # exit code: 1
+
+# Tests pass
+go test ./...
+# PASS
 ```
 
 ---

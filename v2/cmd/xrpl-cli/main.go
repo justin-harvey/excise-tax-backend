@@ -76,6 +76,10 @@ func run() error {
 		return handleBalance(ctx, client, args[1:])
 	case "info":
 		return handleInfo(ctx, client, args[1:])
+	case "tx":
+		return handleTransaction(ctx, client, args[1:])
+	case "history":
+		return handleHistory(ctx, client, args[1:])
 	case "help", "--help", "-h":
 		usage()
 		return nil
@@ -138,6 +142,120 @@ func handleInfo(ctx context.Context, client *xrpl.Client, args []string) error {
 	return nil
 }
 
+func handleTransaction(ctx context.Context, client *xrpl.Client, args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("usage: xrpl-cli tx <hash>")
+	}
+
+	hash := args[0]
+
+	result, err := client.GetTransaction(ctx, hash)
+	if err != nil {
+		return fmt.Errorf("failed to get transaction: %w", err)
+	}
+
+	// Output transaction details
+	fmt.Printf("Hash:       %s\n", result.Hash)
+	fmt.Printf("Status:     %s\n", result.Status)
+	fmt.Printf("Validated:  %v\n", result.Validated)
+	fmt.Printf("Type:       %s\n", result.Tx.TransactionType)
+	fmt.Printf("From:       %s\n", result.Tx.Account)
+
+	if result.Tx.Destination != "" {
+		fmt.Printf("To:         %s\n", result.Tx.Destination)
+	}
+
+	if result.Tx.Amount != nil {
+		// Amount can be string (XRP) or object (IOU)
+		switch amount := result.Tx.Amount.(type) {
+		case string:
+			xrp, err := xrpl.DropsToXRP(amount)
+			if err == nil {
+				fmt.Printf("Amount:     %s XRP (%s drops)\n", xrp, amount)
+			}
+		default:
+			fmt.Printf("Amount:     %v\n", amount)
+		}
+	}
+
+	if result.Tx.Fee != "" {
+		feeXRP, err := xrpl.DropsToXRP(result.Tx.Fee)
+		if err == nil {
+			fmt.Printf("Fee:        %s XRP\n", feeXRP)
+		}
+	}
+
+	if result.Tx.Date > 0 {
+		// Convert Ripple epoch (2000-01-01) to Unix epoch
+		unixTime := result.Tx.Date + 946684800
+		t := time.Unix(unixTime, 0)
+		fmt.Printf("Date:       %s\n", t.Format(time.RFC3339))
+	}
+
+	return nil
+}
+
+func handleHistory(ctx context.Context, client *xrpl.Client, args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("usage: xrpl-cli history <address> [limit]")
+	}
+
+	address := args[0]
+	limit := 10 // default
+
+	if len(args) > 1 {
+		_, err := fmt.Sscanf(args[1], "%d", &limit)
+		if err != nil {
+			return fmt.Errorf("invalid limit: %s", args[1])
+		}
+	}
+
+	transactions, err := client.GetAccountTransactions(ctx, address, limit)
+	if err != nil {
+		return fmt.Errorf("failed to get transaction history: %w", err)
+	}
+
+	if len(transactions) == 0 {
+		fmt.Println("No transactions found")
+		return nil
+	}
+
+	fmt.Printf("Found %d transaction(s):\n\n", len(transactions))
+
+	for i, tx := range transactions {
+		fmt.Printf("%d. %s\n", i+1, tx.Hash)
+		fmt.Printf("   Type:      %s\n", tx.TransactionType)
+		fmt.Printf("   From:      %s\n", tx.Account)
+
+		if tx.Destination != "" {
+			fmt.Printf("   To:        %s\n", tx.Destination)
+		}
+
+		if tx.Amount != nil {
+			switch amount := tx.Amount.(type) {
+			case string:
+				xrp, err := xrpl.DropsToXRP(amount)
+				if err == nil {
+					fmt.Printf("   Amount:    %s XRP\n", xrp)
+				}
+			default:
+				fmt.Printf("   Amount:    %v\n", amount)
+			}
+		}
+
+		if tx.Date > 0 {
+			unixTime := tx.Date + 946684800
+			t := time.Unix(unixTime, 0)
+			fmt.Printf("   Date:      %s\n", t.Format("2006-01-02 15:04:05"))
+		}
+
+		fmt.Printf("   Validated: %v\n", tx.Validated)
+		fmt.Println()
+	}
+
+	return nil
+}
+
 func usage() {
 	fmt.Fprintf(os.Stderr, `xrpl-cli - XRPL Command Line Tool
 
@@ -145,9 +263,11 @@ Usage:
   xrpl-cli [options] <command> [arguments]
 
 Commands:
-  balance <address>    Get XRP balance for an address
-  info <address>       Get detailed account information
-  help                 Show this help message
+  balance <address>         Get XRP balance for an address
+  info <address>            Get detailed account information
+  tx <hash>                 Get transaction details by hash
+  history <address> [limit] Get transaction history (default limit: 10)
+  help                      Show this help message
 
 Options:
   -network string      XRPL network: testnet or mainnet (default "testnet")
@@ -155,13 +275,19 @@ Options:
 
 Examples:
   # Get balance on testnet
-  xrpl-cli balance rN7n7otQDd6FczFgLdlqtyMVrn3NnrcVc3
+  xrpl-cli balance rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY
 
   # Get account info on mainnet
-  xrpl-cli -network mainnet info rN7n7otQDd6FczFgLdlqtyMVrn3NnrcVc3
+  xrpl-cli -network mainnet info rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY
+
+  # Get transaction details
+  xrpl-cli tx C71F385124008A436842B56DEF8196B0621762FBD9464F2510EE9C3D1A3322DA
+
+  # Get last 20 transactions
+  xrpl-cli history rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY 20
 
   # Use as Unix filter (extract just the number)
-  xrpl-cli balance rN7n7otQDd6FczFgLdlqtyMVrn3NnrcVc3 | cut -d' ' -f1
+  xrpl-cli balance rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY | cut -d' ' -f1
 
 Exit Codes:
   0  Success

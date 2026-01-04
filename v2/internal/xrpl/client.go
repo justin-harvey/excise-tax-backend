@@ -141,6 +141,165 @@ func (c *Client) GetAccountInfo(ctx context.Context, address string) (*AccountIn
 	return info, nil
 }
 
+// GetTransaction retrieves a transaction by its hash
+func (c *Client) GetTransaction(ctx context.Context, hash string) (*TxResult, error) {
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+
+	// Basic hash validation (64 hex characters)
+	if len(hash) != 64 {
+		return nil, fmt.Errorf("invalid transaction hash: must be 64 hex characters")
+	}
+
+	req := map[string]interface{}{
+		"command":     "tx",
+		"transaction": hash,
+		"binary":      false,
+	}
+
+	resp, err := c.sendRequest(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.Status != "success" {
+		return nil, fmt.Errorf("request failed: %s", resp.Error)
+	}
+
+	result := &TxResult{}
+
+	if hash, ok := resp.Result["hash"].(string); ok {
+		result.Hash = hash
+	}
+	if validated, ok := resp.Result["validated"].(bool); ok {
+		result.Validated = validated
+	}
+
+	// Extract transaction details
+	tx := Transaction{}
+	if hash, ok := resp.Result["hash"].(string); ok {
+		tx.Hash = hash
+	}
+	if txType, ok := resp.Result["TransactionType"].(string); ok {
+		tx.TransactionType = txType
+	}
+	if account, ok := resp.Result["Account"].(string); ok {
+		tx.Account = account
+	}
+	if dest, ok := resp.Result["Destination"].(string); ok {
+		tx.Destination = dest
+	}
+	if amount := resp.Result["Amount"]; amount != nil {
+		tx.Amount = amount
+	}
+	if fee, ok := resp.Result["Fee"].(string); ok {
+		tx.Fee = fee
+	}
+	if date, ok := resp.Result["date"].(float64); ok {
+		tx.Date = int64(date)
+	}
+	if validated, ok := resp.Result["validated"].(bool); ok {
+		tx.Validated = validated
+	}
+
+	result.Tx = tx
+	result.Status = "validated"
+	if !result.Validated {
+		result.Status = "pending"
+	}
+
+	return result, nil
+}
+
+// GetAccountTransactions retrieves recent transactions for an account
+func (c *Client) GetAccountTransactions(ctx context.Context, address string, limit int) ([]Transaction, error) {
+	if !c.IsConnected() {
+		return nil, ErrNotConnected
+	}
+
+	// Basic address validation
+	if len(address) == 0 || address[0] != 'r' {
+		return nil, ErrInvalidAddress
+	}
+
+	// Limit bounds
+	if limit <= 0 {
+		limit = 10
+	}
+	if limit > 200 {
+		limit = 200
+	}
+
+	req := map[string]interface{}{
+		"command": "account_tx",
+		"account": address,
+		"limit":   limit,
+		"binary":  false,
+	}
+
+	resp, err := c.sendRequest(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.Status != "success" {
+		return nil, fmt.Errorf("request failed: %s", resp.Error)
+	}
+
+	// Extract transactions array
+	txsArray, ok := resp.Result["transactions"].([]interface{})
+	if !ok {
+		return []Transaction{}, nil
+	}
+
+	transactions := make([]Transaction, 0, len(txsArray))
+	for _, txItem := range txsArray {
+		txMap, ok := txItem.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		// Extract tx object
+		txData, ok := txMap["tx"].(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		tx := Transaction{}
+		if hash, ok := txData["hash"].(string); ok {
+			tx.Hash = hash
+		}
+		if txType, ok := txData["TransactionType"].(string); ok {
+			tx.TransactionType = txType
+		}
+		if account, ok := txData["Account"].(string); ok {
+			tx.Account = account
+		}
+		if dest, ok := txData["Destination"].(string); ok {
+			tx.Destination = dest
+		}
+		if amount := txData["Amount"]; amount != nil {
+			tx.Amount = amount
+		}
+		if fee, ok := txData["Fee"].(string); ok {
+			tx.Fee = fee
+		}
+		if date, ok := txData["date"].(float64); ok {
+			tx.Date = int64(date)
+		}
+
+		// Get validated status from meta
+		if validated, ok := txMap["validated"].(bool); ok {
+			tx.Validated = validated
+		}
+
+		transactions = append(transactions, tx)
+	}
+
+	return transactions, nil
+}
+
 // sendRequest sends a request and waits for the response
 func (c *Client) sendRequest(ctx context.Context, req map[string]interface{}) (*Response, error) {
 	c.mu.Lock()
