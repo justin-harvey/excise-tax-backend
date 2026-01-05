@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/maxfelker/excise-tax-backend/v2/internal/api"
+	"github.com/maxfelker/excise-tax-backend/v2/internal/payment"
 	"github.com/maxfelker/excise-tax-backend/v2/internal/tax"
 	"github.com/maxfelker/excise-tax-backend/v2/pkg/logger"
 	"github.com/maxfelker/excise-tax-backend/v2/pkg/xrpl"
@@ -92,8 +93,11 @@ func main() {
 
 	taxCalc := tax.NewCalculator(taxRates, tax.WithLogger(log))
 
+	// Initialize payment processor
+	paymentProc := payment.NewProcessor(xrplClient)
+
 	// Create application
-	app := api.NewApplication(cfg, log, xrplClient, taxCalc)
+	app := api.NewApplication(cfg, log, xrplClient, taxCalc, paymentProc)
 
 	// Start server
 	if err := app.Serve(); err != nil {

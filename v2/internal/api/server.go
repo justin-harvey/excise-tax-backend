@@ -11,25 +11,28 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/maxfelker/excise-tax-backend/v2/internal/payment"
 	"github.com/maxfelker/excise-tax-backend/v2/internal/tax"
 	"github.com/maxfelker/excise-tax-backend/v2/pkg/xrpl"
 )
 
 // Application holds the dependencies for the HTTP handlers
 type Application struct {
-	config        *Config
-	logger        *slog.Logger
-	xrpl          *xrpl.Client
-	taxCalculator *tax.Calculator
+	config           *Config
+	logger           *slog.Logger
+	xrpl             *xrpl.Client
+	taxCalculator    *tax.Calculator
+	paymentProcessor *payment.Processor
 }
 
 // NewApplication creates a new Application instance
-func NewApplication(cfg *Config, logger *slog.Logger, xrplClient *xrpl.Client, taxCalc *tax.Calculator) *Application {
+func NewApplication(cfg *Config, logger *slog.Logger, xrplClient *xrpl.Client, taxCalc *tax.Calculator, paymentProc *payment.Processor) *Application {
 	return &Application{
-		config:        cfg,
-		logger:        logger,
-		xrpl:          xrplClient,
-		taxCalculator: taxCalc,
+		config:           cfg,
+		logger:           logger,
+		xrpl:             xrplClient,
+		taxCalculator:    taxCalc,
+		paymentProcessor: paymentProc,
 	}
 }
 

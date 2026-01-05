@@ -31,6 +31,14 @@ func (app *Application) routes() http.Handler {
 	mux.HandleFunc("POST /tax/validate", app.validateProductionDataHandler)
 	mux.HandleFunc("GET /tax/product-types", app.getProductTypesHandler)
 
+	// Payment endpoints
+	mux.HandleFunc("POST /payments", app.handleCreatePayment)
+	mux.HandleFunc("GET /payments/{id}", app.handleGetPayment)
+	mux.HandleFunc("GET /payments", app.handleListPayments)
+	mux.HandleFunc("GET /payments/{id}/verify", app.handleVerifyPayment)
+	mux.HandleFunc("POST /payments/{id}/retry", app.handleRetryPayment)
+	mux.HandleFunc("GET /payments/{id}/events", app.handleGetPaymentEvents)
+
 	// Wrap with middleware
 	return app.recoverPanic(app.rateLimit(app.enableCORS(app.logRequest(mux))))
 }

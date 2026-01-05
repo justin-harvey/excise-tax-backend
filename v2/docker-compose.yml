@@ -42,8 +42,17 @@ services:
       - XRPL_URL=${XRPL_URL:-wss://s.altnet.rippletest.net:51233}
       - LOG_LEVEL=debug
       - LOG_FORMAT=text
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=${POSTGRES_USER:-postgres}
+      - DB_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_NAME=${POSTGRES_DB:-excise_tax_db}
+      - DB_SSLMODE=disable
     volumes:
       - ./api:/home/app/api:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
       interval: 10s
@@ -69,6 +78,15 @@ services:
       - XRPL_URL=${XRPL_URL:-wss://xrplcluster.com}
       - LOG_LEVEL=info
       - LOG_FORMAT=json
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=${POSTGRES_USER:-postgres}
+      - DB_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_NAME=${POSTGRES_DB:-excise_tax_db}
+      - DB_SSLMODE=require
+    depends_on:
+      postgres:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/v1/health"]
       interval: 30s

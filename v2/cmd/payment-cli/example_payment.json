@@ -1,0 +1,11 @@
+{
+  "type": "xrpl",
+  "amount": "100",
+  "currency": "XRP",
+  "from": "rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY",
+  "to": "rN7n7otQDd6FczFgLdlqtyMVrn3HMfgnC5",
+  "metadata": {
+    "order_id": "12345",
+    "description": "Test payment for excise tax"
+  }
+}

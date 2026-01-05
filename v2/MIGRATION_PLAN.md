@@ -473,6 +473,418 @@ v2/pkg/
 
 ---
 
+## Phase 1.6: Payment CLI Tool (Week 3.5-4) 🚧 IN PROGRESS
+
+**Goal:** Build payment processing CLI tool following Unix philosophy, focusing on XRPL payments first
+
+### 1.6.1 Payment CLI Design
+
+Following the same pattern as XRPL and Tax CLIs, build a focused tool for payment processing:
+
+```
+v2/
+├── cmd/
+│   └── payment-cli/
+│       ├── main.go                    # CLI entry point
+│       ├── example_payment.json       # Example payment data
+│       └── README.md                  # Documentation
+├── internal/
+│   └── payment/
+│       ├── types.go                   # Payment domain types
+│       ├── processor.go               # Core payment processing logic
+│       ├── transaction.go             # Transaction management
+│       ├── events.go                  # Event tracking (immutable)
+│       ├── errors.go                  # Sentinel errors
+│       ├── processor_test.go          # Unit tests
+│       └── events_test.go             # Event tests
+└── pkg/
+    └── payment/
+        ├── client.go                  # Public payment library API
+        ├── types.go                   # Exported payment types
+        └── README.md                  # Library documentation
+```
+
+### 1.6.2 Payment Domain Model
+
+**Payment Types:**
+- `CreditCard` - Credit card payments (future)
+- `ACH` - ACH bank transfers (future)
+- `XRPL` - XRP Ledger payments (Phase 1 focus)
+
+**Transaction States:**
+- `Pending` - Payment initiated, awaiting confirmation
+- `Completed` - Payment successfully processed
+- `InReview` - Payment requires manual review
+- `Failed` - Payment failed with reason
+
+**Event Types (Immutable):**
+- `PaymentInitiated` - Payment created
+- `PaymentSubmitted` - Submitted to payment network
+- `PaymentVerified` - Payment verified on network
+- `PaymentRetried` - Automatic retry attempted
+- `PaymentCompleted` - Payment successfully completed
+- `PaymentFailed` - Payment failed with reason
+- `PaymentReviewed` - Manual review occurred
+
+### 1.6.3 Core Types (`internal/payment/types.go`)
+
+```go
+type PaymentType string
+
+const (
+    PaymentTypeCreditCard PaymentType = "credit_card"
+    PaymentTypeACH        PaymentType = "ach"
+    PaymentTypeXRPL       PaymentType = "xrpl"
+)
+
+type TransactionState string
+
+const (
+    StatePending    TransactionState = "pending"
+    StateCompleted  TransactionState = "completed"
+    StateInReview   TransactionState = "in_review"
+    StateFailed     TransactionState = "failed"
+)
+
+type PaymentTransaction struct {
+    ID          string           `json:"id"`
+    Type        PaymentType      `json:"type"`
+    Amount      string           `json:"amount"`
+    Currency    string           `json:"currency"`
+    From        string           `json:"from"`
+    To          string           `json:"to"`
+    State       TransactionState `json:"state"`
+    Events      []PaymentEvent   `json:"events"`
+    CreatedAt   time.Time        `json:"created_at"`
+    UpdatedAt   time.Time        `json:"updated_at"`
+    Metadata    json.RawMessage  `json:"metadata,omitempty"`
+}
+
+type PaymentEvent struct {
+    ID            string          `json:"id"`
+    TransactionID string          `json:"transaction_id"`
+    Type          string          `json:"type"`
+    State         TransactionState `json:"state"`
+    Details       json.RawMessage `json:"details"`
+    Timestamp     time.Time       `json:"timestamp"`
+}
+
+type XRPLPaymentDetails struct {
+    NetworkTxHash string `json:"network_tx_hash,omitempty"`
+    Ledger        int64  `json:"ledger,omitempty"`
+    Sequence      int64  `json:"sequence,omitempty"`
+    Fee           string `json:"fee,omitempty"`
+    ErrorCode     string `json:"error_code,omitempty"`
+    ErrorMessage  string `json:"error_message,omitempty"`
+}
+```
+
+### 1.6.4 Payment CLI Implementation Checklist
+
+#### Payment Processor (`internal/payment/processor.go`)
+- [ ] `NewProcessor()` - Create payment processor
+- [ ] `CreatePayment(ctx, req) (*PaymentTransaction, error)` - Initiate payment
+- [ ] `ProcessXRPLPayment(ctx, tx) error` - Process XRPL payment
+- [ ] `VerifyPayment(ctx, txID) (*PaymentTransaction, error)` - Verify payment status
+- [ ] `RetryPayment(ctx, txID) error` - Retry failed payment
+- [ ] `GetPayment(ctx, txID) (*PaymentTransaction, error)` - Get payment details
+- [ ] `ListPayments(ctx, filters) ([]PaymentTransaction, error)` - List payments
+- [ ] Pure functions with no side effects
+- [ ] Context-aware operations
+- [ ] Comprehensive validation
+
+#### Event Management (`internal/payment/events.go`)
+- [ ] `NewEvent(txID, eventType, state, details) PaymentEvent` - Create event
+- [ ] `AppendEvent(tx, event) error` - Add event to transaction
+- [ ] Events are immutable - no edit functions
+- [ ] Auto-generate event IDs (UUID)
+- [ ] Auto-timestamp events
+- [ ] Validate event data before creation
+
+#### CLI Commands (`cmd/payment-cli/main.go`)
+- [ ] `create <file>` - Create new payment from JSON
+- [ ] `create --type xrpl --amount X --from A --to B` - Create from flags
+- [ ] `verify <tx-id>` - Verify payment status
+- [ ] `retry <tx-id>` - Retry failed payment
+- [ ] `get <tx-id>` - Get payment details
+- [ ] `list` - List all payments with filters
+- [ ] `events <tx-id>` - Show payment event history
+- [ ] Support stdin with `-` argument
+- [ ] JSON output with `--json` flag
+- [ ] Filter by state: `--state pending`
+- [ ] Filter by type: `--type xrpl`
+
+#### XRPL Integration
+- [ ] Use existing `pkg/xrpl` library
+- [ ] Submit payment to XRPL network
+- [ ] Monitor transaction confirmation
+- [ ] Verify transaction finality
+- [ ] Handle XRPL-specific errors
+- [ ] Support testnet and mainnet
+
+#### Error Handling
+- [ ] Sentinel errors: `ErrInvalidPaymentType`, `ErrPaymentNotFound`, etc.
+- [ ] Custom error types with context
+- [ ] Proper exit codes: 0 (success), 1 (error), 2 (usage), 3 (validation)
+- [ ] User-friendly error messages
+- [ ] Network error handling and retries
+
+#### Testing
+- [ ] Unit tests for processor logic
+- [ ] Event creation and immutability tests
+- [ ] XRPL payment integration tests
+- [ ] Mock XRPL client for unit tests
+- [ ] Validation tests
+- [ ] Error condition tests
+- [ ] Concurrent payment processing tests
+
+### 1.6.5 Success Criteria
+
+```bash
+# Create XRPL payment from JSON
+./payment-cli create payment.json
+# Payment created: tx_abc123
+# State: pending
+
+# Create payment from flags
+./payment-cli create --type xrpl \
+  --amount 100 \
+  --from rSender... \
+  --to rReceiver... \
+  --currency XRP
+# Payment created: tx_def456
+
+# Verify payment status
+./payment-cli verify tx_abc123
+# Transaction: tx_abc123
+# State: completed
+# Events: 4
+
+# Get payment details with JSON output
+./payment-cli get tx_abc123 --json
+# {"id":"tx_abc123","type":"xrpl","state":"completed",...}
+
+# Show payment event history
+./payment-cli events tx_abc123
+# Event 1: payment_initiated (2024-01-04 10:00:00)
+# Event 2: payment_submitted (2024-01-04 10:00:05)
+# Event 3: payment_verified (2024-01-04 10:00:15)
+# Event 4: payment_completed (2024-01-04 10:00:20)
+
+# List all pending payments
+./payment-cli list --state pending
+# tx_xyz789 | xrpl | pending | 100 XRP
+
+# Retry failed payment
+./payment-cli retry tx_failed123
+# Payment retry initiated
+# New event: payment_retried
+
+# Unix filter pattern
+cat payment.json | ./payment-cli create -
+
+# All tests pass
+go test ./internal/payment/...
+# PASS
+```
+
+### 1.6.6 Payment Library Extraction (`pkg/payment/`)
+
+Following Phase 2 pattern, extract reusable payment library:
+
+- [ ] Clean public API with functional options
+- [ ] `payment.New(payment.WithXRPLClient(...), payment.WithLogger(...))`
+- [ ] All payment types exported
+- [ ] Comprehensive godoc documentation
+- [ ] Context-aware operations
+- [ ] Thread-safe for concurrent use
+- [ ] Can be imported by API service
+
+---
+
+## Phase 3.1: Payment HTTP API (Week 4.5-5)
+
+**Goal:** Build RESTful HTTP API for payment processing
+
+### 3.1.1 Payment API Endpoints
+
+**Payment Operations:**
+- [ ] `POST /v1/payments` - Create new payment
+- [ ] `GET /v1/payments/{id}` - Get payment details
+- [ ] `GET /v1/payments` - List payments with filters
+  - [ ] Query params: `state`, `type`, `limit`, `offset`
+- [ ] `POST /v1/payments/{id}/retry` - Retry failed payment
+- [ ] `GET /v1/payments/{id}/verify` - Verify payment status
+- [ ] `GET /v1/payments/{id}/events` - Get payment event history
+
+**Request/Response Examples:**
+
+```json
+// POST /v1/payments
+{
+  "type": "xrpl",
+  "amount": "100",
+  "currency": "XRP",
+  "from": "rSender...",
+  "to": "rReceiver...",
+  "metadata": {}
+}
+
+// Response
+{
+  "id": "tx_abc123",
+  "type": "xrpl",
+  "amount": "100",
+  "currency": "XRP",
+  "from": "rSender...",
+  "to": "rReceiver...",
+  "state": "pending",
+  "events": [
+    {
+      "id": "evt_001",
+      "type": "payment_initiated",
+      "state": "pending",
+      "timestamp": "2024-01-04T10:00:00Z"
+    }
+  ],
+  "created_at": "2024-01-04T10:00:00Z",
+  "updated_at": "2024-01-04T10:00:00Z"
+}
+```
+
+### 3.1.2 Implementation Checklist
+
+#### Payment Handlers (`internal/api/payment_handlers.go`)
+- [ ] `handleCreatePayment(w, r)` - Create payment
+- [ ] `handleGetPayment(w, r)` - Get payment details
+- [ ] `handleListPayments(w, r)` - List payments
+- [ ] `handleRetryPayment(w, r)` - Retry payment
+- [ ] `handleVerifyPayment(w, r)` - Verify payment
+- [ ] `handleGetPaymentEvents(w, r)` - Get events
+- [ ] Use `pkg/payment` library
+- [ ] Validate all inputs
+- [ ] Return structured JSON
+
+#### OpenAPI Spec Updates (`api/openapi.yaml`)
+- [ ] Payment schema definitions
+- [ ] PaymentTransaction schema
+- [ ] PaymentEvent schema
+- [ ] All payment endpoints documented
+- [ ] Request/response examples
+
+---
+
+## Phase 3.2: Payment Database Layer (Week 5-5.5)
+
+**Goal:** Store payments in PostgreSQL with JSONB for transactions and events
+
+### 3.2.1 Database Schema
+
+**Payments Table:**
+```sql
+CREATE TABLE payments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    type VARCHAR(20) NOT NULL CHECK (type IN ('credit_card', 'ach', 'xrpl')),
+    amount DECIMAL(20, 8) NOT NULL,
+    currency VARCHAR(10) NOT NULL,
+    from_address TEXT NOT NULL,
+    to_address TEXT NOT NULL,
+    state VARCHAR(20) NOT NULL CHECK (state IN ('pending', 'completed', 'in_review', 'failed')),
+    transaction_data JSONB NOT NULL,  -- Full PaymentTransaction as JSONB
+    events JSONB NOT NULL DEFAULT '[]',  -- Array of PaymentEvents as JSONB
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    
+    -- Indexes
+    INDEX idx_payments_state (state),
+    INDEX idx_payments_type (type),
+    INDEX idx_payments_created_at (created_at DESC),
+    INDEX idx_payments_from_address (from_address),
+    INDEX idx_payments_to_address (to_address),
+    
+    -- JSONB indexes for querying
+    INDEX idx_payments_transaction_data_gin ON payments USING gin(transaction_data),
+    INDEX idx_payments_events_gin ON payments USING gin(events)
+);
+
+-- Add trigger for updated_at
+CREATE TRIGGER update_payments_updated_at
+    BEFORE UPDATE ON payments
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+```
+
+### 3.2.2 Migration Files
+
+#### Create Migration (`migrations/000005_add_payments.up.sql`)
+- [ ] Create payments table
+- [ ] Add constraints and checks
+- [ ] Create indexes (including GIN for JSONB)
+- [ ] Add updated_at trigger
+
+#### Rollback Migration (`migrations/000005_add_payments.down.sql`)
+- [ ] Drop payments table
+- [ ] Drop indexes
+
+### 3.2.3 Repository Layer (`internal/payment/repository/`)
+
+```go
+type Repository interface {
+    Create(ctx context.Context, tx *PaymentTransaction) error
+    Get(ctx context.Context, id string) (*PaymentTransaction, error)
+    Update(ctx context.Context, tx *PaymentTransaction) error
+    List(ctx context.Context, filters ListFilters) ([]PaymentTransaction, error)
+    AppendEvent(ctx context.Context, txID string, event PaymentEvent) error
+}
+```
+
+#### Implementation Checklist
+- [ ] `Create()` - Insert new payment
+- [ ] `Get()` - Retrieve payment by ID
+- [ ] `Update()` - Update payment (full transaction as JSONB)
+- [ ] `List()` - Query payments with filters
+- [ ] `AppendEvent()` - Append event to JSONB array (immutable append)
+- [ ] Use prepared statements
+- [ ] Transaction support for atomicity
+- [ ] Proper error handling
+- [ ] JSONB marshaling/unmarshaling
+
+### 3.2.4 JSONB Query Examples
+
+```sql
+-- Query by transaction state
+SELECT * FROM payments 
+WHERE transaction_data->>'state' = 'pending';
+
+-- Query by event type
+SELECT * FROM payments
+WHERE events @> '[{"type": "payment_failed"}]';
+
+-- Count events per payment
+SELECT id, jsonb_array_length(events) as event_count
+FROM payments
+ORDER BY event_count DESC;
+
+-- Find payments with specific metadata
+SELECT * FROM payments
+WHERE transaction_data->'metadata'->>'order_id' = '12345';
+```
+
+### 3.2.5 Success Criteria
+
+- [ ] Migrations run successfully
+- [ ] Can create payment in database
+- [ ] Events stored as JSONB array
+- [ ] Can query payments by state, type, address
+- [ ] Can query payments by JSONB fields
+- [ ] Events are immutable (append-only)
+- [ ] Repository tests pass
+- [ ] Integration with API handlers
+
+**Ready for Phase 3:** Build HTTP API layer!
+
+---
+
 ## Phase 3: HTTP RESTful API Layer (Week 4-5) ✅ COMPLETE
 
 **Goal:** Build RESTful HTTP API that exposes all CLI functionality with OpenAPI specification
