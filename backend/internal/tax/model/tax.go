@@ -117,28 +117,28 @@ type UpdateReportRequest struct {
 
 // SubmitReportResponse represents the response after submitting a report.
 type SubmitReportResponse struct {
-	ReportID           int64          `json:"report_id"`
-	Status             string         `json:"status"`
-	TaxAmountCalculated float64       `json:"tax_amount_calculated"`
-	SubmissionDate     time.Time      `json:"submission_date"`
-	ValidationResult   ValidationResult `json:"validation_result"`
+	ReportID            int64            `json:"report_id"`
+	Status              string           `json:"status"`
+	TaxAmountCalculated float64          `json:"tax_amount_calculated"`
+	SubmissionDate      time.Time        `json:"submission_date"`
+	ValidationResult    ValidationResult `json:"validation_result"`
 }
 
 // Report status constants
 const (
-	ReportStatusDraft            = "draft"
-	ReportStatusPending          = "pending"
-	ReportStatusUnderReview      = "under_review"
-	ReportStatusApproved         = "approved"
-	ReportStatusNeedsCorrection  = "needs_correction"
-	ReportStatusRejected         = "rejected"
+	ReportStatusDraft           = "draft"
+	ReportStatusPending         = "pending"
+	ReportStatusUnderReview     = "under_review"
+	ReportStatusApproved        = "approved"
+	ReportStatusNeedsCorrection = "needs_correction"
+	ReportStatusRejected        = "rejected"
 )
 
 // Report type constants
 const (
-	ReportTypeMonthly    = "monthly"
-	ReportTypeQuarterly  = "quarterly"
-	ReportTypeAnnual     = "annual"
+	ReportTypeMonthly   = "monthly"
+	ReportTypeQuarterly = "quarterly"
+	ReportTypeAnnual    = "annual"
 )
 
 // Product type constants

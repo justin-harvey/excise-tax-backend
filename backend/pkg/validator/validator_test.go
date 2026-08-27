@@ -274,14 +274,14 @@ func TestValidateStrongPassword_Invalid(t *testing.T) {
 	v := New()
 
 	invalidPasswords := []string{
-		"password",        // No uppercase, no number, no special
-		"PASSWORD",        // No lowercase, no number, no special
-		"Password",        // No number, no special
-		"Password1",       // No special
-		"Pass1!",          // Too short
-		"password1!",      // No uppercase
-		"PASSWORD1!",      // No lowercase
-		"PasswordWord!",   // No number
+		"password",      // No uppercase, no number, no special
+		"PASSWORD",      // No lowercase, no number, no special
+		"Password",      // No number, no special
+		"Password1",     // No special
+		"Pass1!",        // Too short
+		"password1!",    // No uppercase
+		"PASSWORD1!",    // No lowercase
+		"PasswordWord!", // No number
 	}
 
 	for _, password := range invalidPasswords {

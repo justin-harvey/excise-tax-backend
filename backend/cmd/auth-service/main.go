@@ -11,13 +11,13 @@ import (
 	"syscall"
 	"time"
 
-	"excise-tax-portal/backend/internal/auth/handler"
-	"excise-tax-portal/backend/internal/auth/middleware"
-	"excise-tax-portal/backend/internal/auth/repository"
-	"excise-tax-portal/backend/internal/auth/service"
-	"excise-tax-portal/backend/pkg/cache"
-	"excise-tax-portal/backend/pkg/database"
-	"excise-tax-portal/backend/pkg/utils"
+	"github.com/excise-tax-portal/backend/internal/auth/handler"
+	"github.com/excise-tax-portal/backend/internal/auth/middleware"
+	"github.com/excise-tax-portal/backend/internal/auth/repository"
+	"github.com/excise-tax-portal/backend/internal/auth/service"
+	"github.com/excise-tax-portal/backend/pkg/cache"
+	"github.com/excise-tax-portal/backend/pkg/database"
+	"github.com/excise-tax-portal/backend/pkg/utils"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -238,26 +238,26 @@ func setupRouter(
 
 // Config holds application configuration
 type Config struct {
-	Environment        string
-	Port               int
-	DBHost             string
-	DBPort             int
-	DBUser             string
-	DBPassword         string
-	DBName             string
-	DBSSLMode          string
-	RedisHost          string
-	RedisPort          int
-	RedisPassword      string
-	JWTSecret          string
-	CORSOrigins        []string
-	OAuthEnabled       bool
-	OAuthClientID      string
-	OAuthClientSecret  string
-	OAuthRedirectURI   string
-	OAuthAuthURL       string
-	OAuthTokenURL      string
-	OAuthUserInfoURL   string
+	Environment       string
+	Port              int
+	DBHost            string
+	DBPort            int
+	DBUser            string
+	DBPassword        string
+	DBName            string
+	DBSSLMode         string
+	RedisHost         string
+	RedisPort         int
+	RedisPassword     string
+	JWTSecret         string
+	CORSOrigins       []string
+	OAuthEnabled      bool
+	OAuthClientID     string
+	OAuthClientSecret string
+	OAuthRedirectURI  string
+	OAuthAuthURL      string
+	OAuthTokenURL     string
+	OAuthUserInfoURL  string
 }
 
 // loadConfig loads configuration from environment variables

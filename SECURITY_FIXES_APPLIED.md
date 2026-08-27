@@ -2,6 +2,13 @@
 
 **Date:** 2025-12-29
 **Status:** ✅ All Critical Security Issues Resolved
+**Correction (2026-08-27):** the code fixes below (CORS, docker-compose
+passwords) were verified against the current source and are real. But this
+file also claimed `.gitignore` and `infrastructure/docker/.env.docker.example`
+were added - neither ever existed in this repo's git history until today.
+They were apparently created locally and never committed. Both now exist for
+real (`.gitignore` at the repo root, the docker example alongside
+docker-compose.yml).
 
 ---
 

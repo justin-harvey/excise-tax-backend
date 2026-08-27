@@ -26,9 +26,9 @@ type ServiceConfig struct {
 
 // ProxyConfig holds the proxy configuration
 type ProxyConfig struct {
-	Services       map[string]ServiceConfig
-	DefaultTimeout time.Duration
-	MaxIdleConns   int
+	Services        map[string]ServiceConfig
+	DefaultTimeout  time.Duration
+	MaxIdleConns    int
 	IdleConnTimeout time.Duration
 }
 

@@ -160,11 +160,11 @@ func (c *Client) GetAccountInfo(ctx context.Context, address string) (*AccountIn
 	}
 
 	return &AccountInfo{
-		Address: address,
-		Balance: balance,
-		Sequence: 1,
+		Address:    address,
+		Balance:    balance,
+		Sequence:   1,
 		OwnerCount: 0,
-		Flags: 0,
+		Flags:      0,
 	}, nil
 }
 
@@ -216,12 +216,12 @@ func (c *Client) VerifyTransaction(ctx context.Context, txHash string) (*Transac
 	}
 
 	verification := &TransactionVerification{
-		TxHash:      txHash,
-		Validated:   tx.Validated,
-		LedgerIndex: tx.LedgerIndex,
-		Success:     tx.TransactionResult == "tesSUCCESS",
-		Amount:      tx.Amount,
-		Destination: tx.Destination,
+		TxHash:         txHash,
+		Validated:      tx.Validated,
+		LedgerIndex:    tx.LedgerIndex,
+		Success:        tx.TransactionResult == "tesSUCCESS",
+		Amount:         tx.Amount,
+		Destination:    tx.Destination,
 		DestinationTag: tx.DestinationTag,
 	}
 

@@ -1,0 +1,31 @@
+# Build artifacts
+bin/
+dist/
+*.exe
+*.test
+*.out
+
+# Go
+vendor/
+
+# Environment files - never commit real secrets
+.env
+.env.local
+.env.docker
+*.env
+!*.env.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+
+# Test/coverage output
+coverage.out
+coverage.html
+
+# Logs
+*.log

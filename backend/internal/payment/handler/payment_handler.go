@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"excise-tax-portal/backend/internal/payment/service"
+	"github.com/excise-tax-portal/backend/internal/payment/service"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"

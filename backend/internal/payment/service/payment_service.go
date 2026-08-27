@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"time"
 
-	"excise-tax-portal/backend/internal/payment/model"
-	"excise-tax-portal/backend/internal/payment/repository"
-	"excise-tax-portal/backend/internal/payment/xrpl"
-	"excise-tax-portal/backend/pkg/cache"
+	"github.com/excise-tax-portal/backend/internal/payment/model"
+	"github.com/excise-tax-portal/backend/internal/payment/repository"
+	"github.com/excise-tax-portal/backend/internal/payment/xrpl"
+	"github.com/excise-tax-portal/backend/pkg/cache"
 
 	"go.uber.org/zap"
 )
@@ -254,10 +254,10 @@ func (s *PaymentService) GetExchangeRate(ctx context.Context) (*ExchangeRateResp
 	}
 
 	return &ExchangeRateResponse{
-		XRPUSD:     rate.XRPUSD,
-		USDXRP:     rate.USDXRP,
-		Sources:    sources,
-		UpdatedAt:  rate.Updated,
+		XRPUSD:    rate.XRPUSD,
+		USDXRP:    rate.USDXRP,
+		Sources:   sources,
+		UpdatedAt: rate.Updated,
 	}, nil
 }
 
@@ -365,15 +365,15 @@ func (s *PaymentService) logTransaction(ctx context.Context, payment *model.Paym
 	rawTx, _ := json.Marshal(verification)
 
 	log := &model.XRPLTransactionLog{
-		PaymentID:       sql.NullInt64{Int64: payment.ID, Valid: true},
-		TxHash:          verification.TxHash,
-		TxType:          "Payment",
-		ToAddress:       sql.NullString{String: verification.Destination, Valid: true},
-		AmountDrops:     sql.NullInt64{Int64: verification.Amount, Valid: true},
-		DestinationTag:  payment.XRPLPayment.DestinationTag,
-		LedgerIndex:     sql.NullInt64{Int64: verification.LedgerIndex, Valid: true},
-		RawTransaction:  rawTx,
-		Notes:           sql.NullString{String: "Payment confirmed", Valid: true},
+		PaymentID:      sql.NullInt64{Int64: payment.ID, Valid: true},
+		TxHash:         verification.TxHash,
+		TxType:         "Payment",
+		ToAddress:      sql.NullString{String: verification.Destination, Valid: true},
+		AmountDrops:    sql.NullInt64{Int64: verification.Amount, Valid: true},
+		DestinationTag: payment.XRPLPayment.DestinationTag,
+		LedgerIndex:    sql.NullInt64{Int64: verification.LedgerIndex, Valid: true},
+		RawTransaction: rawTx,
+		Notes:          sql.NullString{String: "Payment confirmed", Valid: true},
 	}
 
 	if err := s.repo.LogTransaction(ctx, log); err != nil {
@@ -392,18 +392,18 @@ type CreateXRPLPaymentRequest struct {
 }
 
 type XRPLPaymentResponse struct {
-	PaymentID          int64                   `json:"payment_id"`
-	XRPLPaymentID      int64                   `json:"xrpl_payment_id"`
-	ManufacturerID     int64                   `json:"manufacturer_id"`
-	AmountUSD          float64                 `json:"amount_usd"`
-	XRPAmount          float64                 `json:"xrp_amount"`
-	ExchangeRate       float64                 `json:"exchange_rate"`
-	DestinationAddress string                  `json:"destination_address"`
-	DestinationTag     uint32                  `json:"destination_tag"`
-	QRCode             string                  `json:"qr_code,omitempty"`
-	Status             string                  `json:"status"`
-	ExpiresAt          time.Time               `json:"expires_at"`
-	CreatedAt          time.Time               `json:"created_at"`
+	PaymentID          int64                    `json:"payment_id"`
+	XRPLPaymentID      int64                    `json:"xrpl_payment_id"`
+	ManufacturerID     int64                    `json:"manufacturer_id"`
+	AmountUSD          float64                  `json:"amount_usd"`
+	XRPAmount          float64                  `json:"xrp_amount"`
+	ExchangeRate       float64                  `json:"exchange_rate"`
+	DestinationAddress string                   `json:"destination_address"`
+	DestinationTag     uint32                   `json:"destination_tag"`
+	QRCode             string                   `json:"qr_code,omitempty"`
+	Status             string                   `json:"status"`
+	ExpiresAt          time.Time                `json:"expires_at"`
+	CreatedAt          time.Time                `json:"created_at"`
 	Instructions       xrpl.PaymentInstructions `json:"instructions"`
 }
 

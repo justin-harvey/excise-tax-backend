@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"time"
 
-	"excise-tax-portal/backend/internal/auth/model"
-	"excise-tax-portal/backend/pkg/cache"
-	"excise-tax-portal/backend/pkg/utils"
+	"github.com/excise-tax-portal/backend/internal/auth/model"
+	"github.com/excise-tax-portal/backend/pkg/cache"
+	"github.com/excise-tax-portal/backend/pkg/utils"
 )
 
 var (

@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strings"
 
-	"excise-tax-portal/backend/internal/auth/service"
-	"excise-tax-portal/backend/pkg/utils"
+	"github.com/excise-tax-portal/backend/internal/auth/service"
+	"github.com/excise-tax-portal/backend/pkg/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -194,8 +194,8 @@ func GetClaims(c *gin.Context) (*utils.Claims, bool) {
 		return nil, false
 	}
 
-	c, ok := claims.(*utils.Claims)
-	return c, ok
+	userClaims, ok := claims.(*utils.Claims)
+	return userClaims, ok
 }
 
 // HasRole checks if user has a specific role

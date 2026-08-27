@@ -6,21 +6,21 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 
-	"excise-tax-portal/backend/internal/api-gateway/handler"
-	"excise-tax-portal/backend/internal/api-gateway/middleware"
-	"excise-tax-portal/backend/internal/api-gateway/proxy"
+	"github.com/excise-tax-portal/backend/internal/api-gateway/handler"
+	"github.com/excise-tax-portal/backend/internal/api-gateway/middleware"
+	"github.com/excise-tax-portal/backend/internal/api-gateway/proxy"
 )
 
 // Config holds the router configuration
 type Config struct {
-	Logger            *zap.Logger
-	ServiceProxy      *proxy.ServiceProxy
-	RateLimiter       *middleware.RateLimiter
-	HealthHandler     *handler.HealthHandler
-	CORSConfig        middleware.CORSConfig
-	AuthConfig        middleware.AuthConfig
-	EnableMetrics     bool
-	EnableDebugMode   bool
+	Logger          *zap.Logger
+	ServiceProxy    *proxy.ServiceProxy
+	RateLimiter     *middleware.RateLimiter
+	HealthHandler   *handler.HealthHandler
+	CORSConfig      middleware.CORSConfig
+	AuthConfig      middleware.AuthConfig
+	EnableMetrics   bool
+	EnableDebugMode bool
 }
 
 // Setup configures and returns the Gin router with all middleware and routes
@@ -38,13 +38,13 @@ func Setup(config Config) *gin.Engine {
 	router.Use(middleware.RequestID())
 
 	// 2. Panic recovery (catch panics early)
-	router.Use(middleware.Recovery(config.Logger.GetZapLogger()))
+	router.Use(middleware.Recovery(config.Logger))
 
 	// 3. CORS handling (before authentication)
 	router.Use(middleware.CORS(config.CORSConfig))
 
 	// 4. Request logging (after request ID and recovery)
-	router.Use(middleware.Logging(config.Logger.GetZapLogger()))
+	router.Use(middleware.Logging(config.Logger))
 
 	// Health check endpoints (no authentication required)
 	router.GET("/health", config.HealthHandler.Health)
@@ -70,7 +70,7 @@ func Setup(config Config) *gin.Engine {
 
 			// Authenticated routes
 			authProtected := authGroup.Group("")
-			authProtected.Use(middleware.Auth(config.AuthConfig, config.Logger.GetZapLogger()))
+			authProtected.Use(middleware.Auth(config.AuthConfig, config.Logger))
 			{
 				authProtected.POST("/logout", config.ServiceProxy.ProxyRequest("auth", "/api/v1/auth"))
 				authProtected.GET("/me", config.ServiceProxy.ProxyRequest("auth", "/api/v1/auth"))
@@ -81,7 +81,7 @@ func Setup(config Config) *gin.Engine {
 
 		// Payment service routes (authentication required)
 		paymentGroup := v1.Group("/payments")
-		paymentGroup.Use(middleware.Auth(config.AuthConfig, config.Logger.GetZapLogger()))
+		paymentGroup.Use(middleware.Auth(config.AuthConfig, config.Logger))
 		paymentGroup.Use(config.RateLimiter.RateLimit())
 		{
 			paymentGroup.POST("", config.ServiceProxy.ProxyRequest("payment", "/api/v1/payments"))
@@ -93,7 +93,7 @@ func Setup(config Config) *gin.Engine {
 
 		// Tax service routes (authentication required)
 		taxGroup := v1.Group("/tax")
-		taxGroup.Use(middleware.Auth(config.AuthConfig, config.Logger.GetZapLogger()))
+		taxGroup.Use(middleware.Auth(config.AuthConfig, config.Logger))
 		taxGroup.Use(config.RateLimiter.RateLimit())
 		{
 			// Tax calculations
@@ -114,7 +114,7 @@ func Setup(config Config) *gin.Engine {
 
 		// Reporting service routes (authentication required)
 		reportGroup := v1.Group("/reports")
-		reportGroup.Use(middleware.Auth(config.AuthConfig, config.Logger.GetZapLogger()))
+		reportGroup.Use(middleware.Auth(config.AuthConfig, config.Logger))
 		reportGroup.Use(config.RateLimiter.RateLimit())
 		{
 			reportGroup.POST("/generate", config.ServiceProxy.ProxyRequest("reporting", "/api/v1/reports"))
@@ -126,8 +126,8 @@ func Setup(config Config) *gin.Engine {
 
 		// Admin routes (authentication + admin role required)
 		adminGroup := v1.Group("/admin")
-		adminGroup.Use(middleware.Auth(config.AuthConfig, config.Logger.GetZapLogger()))
-		adminGroup.Use(middleware.RequireRole("admin", config.Logger.GetZapLogger()))
+		adminGroup.Use(middleware.Auth(config.AuthConfig, config.Logger))
+		adminGroup.Use(middleware.RequireRole("admin", config.Logger))
 		adminGroup.Use(config.RateLimiter.RateLimit())
 		{
 			// User management

@@ -77,17 +77,17 @@ func (p *PaymentProcessor) CreatePaymentRequest(ctx context.Context, req *Create
 
 	// Create payment response
 	response := &PaymentResponse{
-		PaymentID:       paymentID,
-		ManufacturerID:  req.ManufacturerID,
-		ReportID:        req.ReportID,
-		AmountUSD:       req.AmountUSD,
-		XRPAmount:       xrpAmount,
-		ExchangeRate:    rate.XRPUSD,
+		PaymentID:          paymentID,
+		ManufacturerID:     req.ManufacturerID,
+		ReportID:           req.ReportID,
+		AmountUSD:          req.AmountUSD,
+		XRPAmount:          xrpAmount,
+		ExchangeRate:       rate.XRPUSD,
 		DestinationAddress: p.client.stateAddress,
-		DestinationTag:  destinationTag,
-		Status:          string(PaymentStatusPending),
-		CreatedAt:       time.Now(),
-		ExpiresAt:       expiresAt,
+		DestinationTag:     destinationTag,
+		Status:             string(PaymentStatusPending),
+		CreatedAt:          time.Now(),
+		ExpiresAt:          expiresAt,
 		Instructions: PaymentInstructions{
 			Destination:    p.client.stateAddress,
 			Amount:         xrpAmount,

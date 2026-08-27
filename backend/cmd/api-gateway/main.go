@@ -11,16 +11,15 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 
-	"excise-tax-portal/backend/internal/api-gateway/handler"
-	"excise-tax-portal/backend/internal/api-gateway/middleware"
-	"excise-tax-portal/backend/internal/api-gateway/proxy"
-	"excise-tax-portal/backend/internal/api-gateway/router"
-	"excise-tax-portal/backend/pkg/cache"
-	"excise-tax-portal/backend/pkg/logger"
+	"github.com/excise-tax-portal/backend/internal/api-gateway/handler"
+	"github.com/excise-tax-portal/backend/internal/api-gateway/middleware"
+	"github.com/excise-tax-portal/backend/internal/api-gateway/proxy"
+	"github.com/excise-tax-portal/backend/internal/api-gateway/router"
+	"github.com/excise-tax-portal/backend/pkg/cache"
+	"github.com/excise-tax-portal/backend/pkg/logger"
 )
 
 // Config represents the application configuration
@@ -48,6 +47,14 @@ type Config struct {
 		TaxURL       string `yaml:"tax_url"`
 		ReportingURL string `yaml:"reporting_url"`
 	} `yaml:"services"`
+
+	// JWT holds the secret the gateway uses to validate access tokens locally
+	// (see middleware.Auth). It was missing from this struct even though the
+	// auth middleware has always required it - set via JWT_SECRET_KEY, not
+	// committed here, same as every other secret in this repo.
+	JWT struct {
+		SecretKey string `yaml:"secret_key"`
+	} `yaml:"jwt"`
 
 	Redis struct {
 		Host     string `yaml:"host"`
@@ -148,7 +155,7 @@ func main() {
 		IdleConnTimeout: 90 * time.Second,
 	}
 
-	serviceProxy := proxy.NewServiceProxy(proxyConfig, log)
+	serviceProxy := proxy.NewServiceProxy(proxyConfig, log.GetZapLogger())
 
 	// Start periodic health checks for backend services
 	healthCheckCtx, healthCheckCancel := context.WithCancel(context.Background())
@@ -165,7 +172,7 @@ func main() {
 
 	// Initialize health handler
 	redisHealthAdapter := &RedisHealthAdapter{client: redisClient}
-	healthHandler := handler.NewHealthHandler(serviceProxy, redisHealthAdapter, log)
+	healthHandler := handler.NewHealthHandler(serviceProxy, redisHealthAdapter, log.GetZapLogger())
 
 	// Configure CORS
 	corsConfig := middleware.CORSConfig{
@@ -179,7 +186,7 @@ func main() {
 
 	// Configure authentication
 	authConfig := middleware.AuthConfig{
-		AuthServiceURL: cfg.Services.AuthURL,
+		JWTSecretKey: cfg.JWT.SecretKey,
 		AnonymousRoutes: []string{
 			"/api/v1/auth/login",
 			"/api/v1/auth/register",
@@ -195,7 +202,7 @@ func main() {
 
 	// Setup router
 	routerConfig := router.Config{
-		Logger:          log,
+		Logger:          log.GetZapLogger(),
 		ServiceProxy:    serviceProxy,
 		RateLimiter:     rateLimiter,
 		HealthHandler:   healthHandler,
@@ -319,6 +326,10 @@ func loadConfig() (*Config, error) {
 		cfg.Services.ReportingURL = reportingURL
 	} else if cfg.Services.ReportingURL == "" {
 		cfg.Services.ReportingURL = "http://localhost:8083"
+	}
+
+	if jwtSecret := os.Getenv("JWT_SECRET_KEY"); jwtSecret != "" {
+		cfg.JWT.SecretKey = jwtSecret
 	}
 
 	// Set default CORS if not configured

@@ -3,6 +3,8 @@ package utils
 import (
 	"testing"
 	"time"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
 func TestNewJWTManager(t *testing.T) {
@@ -374,19 +376,20 @@ func TestClaims_HasAllRoles(t *testing.T) {
 }
 
 func TestClaims_IsExpired(t *testing.T) {
-	// Not expired
+	// jwt/v5's RegisteredClaims.ExpiresAt is *jwt.NumericDate, not *time.Time -
+	// this test predates the v5 upgrade and used to construct it as a raw
+	// *time.Time, which no longer compiles (go vet caught it).
 	claims := &Claims{}
-	claims.ExpiresAt = &time.Time{}
-	futureTime := time.Now().Add(1 * time.Hour)
-	*claims.ExpiresAt = futureTime
+
+	// Not expired
+	claims.ExpiresAt = jwt.NewNumericDate(time.Now().Add(1 * time.Hour))
 
 	if claims.IsExpired() {
 		t.Error("expected IsExpired to return false for future expiration")
 	}
 
 	// Expired
-	pastTime := time.Now().Add(-1 * time.Hour)
-	*claims.ExpiresAt = pastTime
+	claims.ExpiresAt = jwt.NewNumericDate(time.Now().Add(-1 * time.Hour))
 
 	if !claims.IsExpired() {
 		t.Error("expected IsExpired to return true for past expiration")

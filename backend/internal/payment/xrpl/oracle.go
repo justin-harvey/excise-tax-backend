@@ -15,16 +15,16 @@ import (
 
 // PriceOracle aggregates XRP/USD exchange rates from multiple sources.
 type PriceOracle struct {
-	sources           []ExchangeSource
-	cache             *ExchangeRate
-	cacheMu           sync.RWMutex
-	logger            *zap.Logger
-	updateInterval    time.Duration
-	cacheDuration     time.Duration
-	outlierThreshold  float64
-	minSources        int
-	stopChan          chan struct{}
-	httpClient        *http.Client
+	sources          []ExchangeSource
+	cache            *ExchangeRate
+	cacheMu          sync.RWMutex
+	logger           *zap.Logger
+	updateInterval   time.Duration
+	cacheDuration    time.Duration
+	outlierThreshold float64
+	minSources       int
+	stopChan         chan struct{}
+	httpClient       *http.Client
 }
 
 // OracleConfig holds price oracle configuration.

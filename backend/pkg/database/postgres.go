@@ -35,29 +35,29 @@ import (
 
 // Config holds the PostgreSQL database configuration parameters.
 type Config struct {
-	Host            string
-	Port            int
-	User            string
-	Password        string
-	DBName          string
-	SSLMode         string
-	MaxConns        int32
-	MinConns        int32
-	MaxConnLifetime time.Duration
-	MaxConnIdleTime time.Duration
+	Host              string
+	Port              int
+	User              string
+	Password          string
+	DBName            string
+	SSLMode           string
+	MaxConns          int32
+	MinConns          int32
+	MaxConnLifetime   time.Duration
+	MaxConnIdleTime   time.Duration
 	HealthCheckPeriod time.Duration
 }
 
 // DefaultConfig returns a Config with sensible default values.
 func DefaultConfig() *Config {
 	return &Config{
-		Host:            "localhost",
-		Port:            5432,
-		SSLMode:         "disable",
-		MaxConns:        25,
-		MinConns:        5,
-		MaxConnLifetime: time.Hour,
-		MaxConnIdleTime: 30 * time.Minute,
+		Host:              "localhost",
+		Port:              5432,
+		SSLMode:           "disable",
+		MaxConns:          25,
+		MinConns:          5,
+		MaxConnLifetime:   time.Hour,
+		MaxConnIdleTime:   30 * time.Minute,
 		HealthCheckPeriod: 1 * time.Minute,
 	}
 }
@@ -86,12 +86,24 @@ func NewPostgresDB(ctx context.Context, cfg *Config) (*PostgresDB, error) {
 		return nil, fmt.Errorf("failed to parse database config: %w", err)
 	}
 
-	// Set pool configuration
+	// Set pool configuration. pgxpool.ParseConfig already populated
+	// MaxConnLifetime/MaxConnIdleTime/HealthCheckPeriod with sane defaults
+	// (1h/30m/1m); only override them when the caller actually set a value,
+	// otherwise a zero-value Config - e.g. one built with &Config{Host: ...}
+	// rather than DefaultConfig() - clobbers HealthCheckPeriod to 0, and
+	// pgxpool's background health-check goroutine panics on
+	// time.NewTicker(0) as soon as the pool is created.
 	poolConfig.MaxConns = cfg.MaxConns
 	poolConfig.MinConns = cfg.MinConns
-	poolConfig.MaxConnLifetime = cfg.MaxConnLifetime
-	poolConfig.MaxConnIdleTime = cfg.MaxConnIdleTime
-	poolConfig.HealthCheckPeriod = cfg.HealthCheckPeriod
+	if cfg.MaxConnLifetime > 0 {
+		poolConfig.MaxConnLifetime = cfg.MaxConnLifetime
+	}
+	if cfg.MaxConnIdleTime > 0 {
+		poolConfig.MaxConnIdleTime = cfg.MaxConnIdleTime
+	}
+	if cfg.HealthCheckPeriod > 0 {
+		poolConfig.HealthCheckPeriod = cfg.HealthCheckPeriod
+	}
 
 	// Create connection pool
 	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)

@@ -2,14 +2,15 @@
 package handler
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
 
+	"github.com/excise-tax-portal/backend/internal/tax/model"
+	"github.com/excise-tax-portal/backend/internal/tax/service"
+	"github.com/excise-tax-portal/backend/pkg/errors"
+	"github.com/excise-tax-portal/backend/pkg/logger"
 	"github.com/gin-gonic/gin"
-	"github.com/yourusername/excise-tax-portal/backend/internal/tax/model"
-	"github.com/yourusername/excise-tax-portal/backend/internal/tax/service"
-	"github.com/yourusername/excise-tax-portal/backend/pkg/errors"
-	"github.com/yourusername/excise-tax-portal/backend/pkg/logger"
 	"go.uber.org/zap"
 )
 
@@ -57,7 +58,7 @@ func (h *TaxHandler) CreateReport(c *gin.Context) {
 	// This would require getting manufacturer_id from user_id via a repository
 	// For now, we'll trust the manufacturer_id in the request
 
-	report, err := h.service.CreateReport(ctx, &req)
+	report, err := h.service.CreateReport(ctx, &req, userID, role)
 	if err != nil {
 		h.logger.ErrorContext(ctx, "Failed to create report", zap.Error(err))
 		h.respondWithError(c, err)
@@ -305,8 +306,10 @@ func (h *TaxHandler) CalculateTax(c *gin.Context) {
 		return
 	}
 
-	// Convert to JSON
-	jsonData, err := productionData.Items[0].MarshalJSON()
+	// Marshal the whole payload - CalculateTaxAmount/CalculateTaxFromProduction
+	// iterate every item in Items, so encoding only Items[0] would silently
+	// drop every other line item from the calculation.
+	jsonData, err := json.Marshal(productionData)
 	if err != nil {
 		h.respondWithError(c, errors.NewBadRequestError("failed to process production data"))
 		return

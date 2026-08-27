@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/excise-tax-portal/backend/internal/tax/model"
+	"github.com/excise-tax-portal/backend/pkg/database"
 	"github.com/jackc/pgx/v5"
-	"github.com/yourusername/excise-tax-portal/backend/internal/tax/model"
-	"github.com/yourusername/excise-tax-portal/backend/pkg/database"
 )
 
 // TaxRepository defines the interface for tax data operations.
@@ -23,6 +23,10 @@ type TaxRepository interface {
 	GetAllCurrentTaxRates(ctx context.Context) ([]*model.TaxRate, error)
 	CheckOverlappingReports(ctx context.Context, manufacturerID int64, startDate, endDate time.Time, excludeReportID *int64) (bool, error)
 	CountReportsByFilter(ctx context.Context, filter *model.ReportFilter) (int64, error)
+	// CalculateTaxFromProduction is implemented below on *taxRepository but was
+	// missing from this interface, so every caller holding a TaxRepository
+	// (e.g. tax_service.go) could not see it despite the method existing.
+	CalculateTaxFromProduction(ctx context.Context, productionData json.RawMessage) (float64, error)
 }
 
 // taxRepository implements TaxRepository interface.

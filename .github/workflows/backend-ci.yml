@@ -151,11 +151,14 @@ jobs:
           path: backend/bin/${{ matrix.service }}
           retention-days: 7
 
+  # Disabled until infrastructure/docker/Dockerfile.backend actually exists -
+  # this job referenced it from the start but the file was never added, so
+  # this job would fail the first time it ran (main-only, so it never has).
   docker:
     name: Build Docker Images
     runs-on: ubuntu-latest
     needs: [build]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: false
 
     steps:
       - name: Checkout code

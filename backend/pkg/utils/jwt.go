@@ -190,14 +190,6 @@ func ExtractTokenFromBearer(bearerToken string) (string, error) {
 	return token, nil
 }
 
-// GetExpirationTime returns the expiration time from claims
-func (c *Claims) GetExpirationTime() time.Time {
-	if c.ExpiresAt != nil {
-		return c.ExpiresAt.Time
-	}
-	return time.Time{}
-}
-
 // IsExpired checks if the token has expired
 func (c *Claims) IsExpired() bool {
 	if c.ExpiresAt == nil {

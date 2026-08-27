@@ -11,7 +11,7 @@ import (
 	"net/url"
 	"time"
 
-	"excise-tax-portal/backend/pkg/utils"
+	"github.com/excise-tax-portal/backend/pkg/utils"
 )
 
 // OAuthProvider represents supported OAuth providers

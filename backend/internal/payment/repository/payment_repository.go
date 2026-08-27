@@ -3,12 +3,11 @@ package repository
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"time"
 
-	"excise-tax-portal/backend/internal/payment/model"
-	"excise-tax-portal/backend/pkg/database"
+	"github.com/excise-tax-portal/backend/internal/payment/model"
+	"github.com/excise-tax-portal/backend/pkg/database"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -52,7 +51,7 @@ func (r *PaymentRepository) CreatePayment(ctx context.Context, payment *model.Pa
 
 		// Insert XRPL payment if provided
 		if xrplPayment != nil {
-			xrplPayment.PaymentID = payment.ID
+			xrplPayment.PaymentID = sql.NullInt64{Int64: payment.ID, Valid: true}
 
 			xrplQuery := `
 				INSERT INTO xrpl_payments (
@@ -101,17 +100,10 @@ func (r *PaymentRepository) GetPaymentByID(ctx context.Context, id int64) (*mode
 	`
 
 	var result model.PaymentWithXRPL
-	var xrpl model.XRPLPayment
-	var hasXRPL bool
-
-	err := r.db.QueryRow(ctx, query, id).Scan(
+	xrpl, hasXRPL, err := scanXRPLLeftJoin(r.db.QueryRow(ctx, query, id),
 		&result.ID, &result.ManufacturerID, &result.ReportID, &result.PaymentMethod,
 		&result.AmountUSD, &result.Status, &result.TransactionID, &result.ConfirmationNumber,
 		&result.PaymentDate, &result.ProcessedAt, &result.Metadata, &result.CreatedAt, &result.UpdatedAt,
-		&xrpl.ID, &xrpl.PaymentID, &xrpl.XRPAmount, &xrpl.ExchangeRate,
-		&xrpl.DestinationAddress, &xrpl.DestinationTag, &xrpl.SourceAddress,
-		&xrpl.TxHash, &xrpl.LedgerIndex, &xrpl.FeeXRP, &xrpl.Status,
-		&xrpl.QRCode, &xrpl.ExpiresAt, &xrpl.ConfirmedAt, &xrpl.CreatedAt, &xrpl.UpdatedAt,
 	)
 
 	if err == pgx.ErrNoRows {
@@ -121,9 +113,8 @@ func (r *PaymentRepository) GetPaymentByID(ctx context.Context, id int64) (*mode
 		return nil, fmt.Errorf("failed to get payment: %w", err)
 	}
 
-	if xrpl.ID.Valid {
-		hasXRPL = true
-		result.XRPLPayment = &xrpl
+	if hasXRPL {
+		result.XRPLPayment = xrpl
 	}
 
 	if !hasXRPL && result.PaymentMethod == model.PaymentMethodXRPL {
@@ -131,6 +122,61 @@ func (r *PaymentRepository) GetPaymentByID(ctx context.Context, id int64) (*mode
 	}
 
 	return &result, nil
+}
+
+// scannable is satisfied by both pgx.Row and pgx.Rows, letting a single row
+// of this query's shape be scanned the same way whether it came from
+// QueryRow or from a Rows loop.
+type scannable interface {
+	Scan(dest ...interface{}) error
+}
+
+// scanXRPLLeftJoin scans one row of the payments-LEFT-JOIN-xrpl_payments
+// shape shared by GetPaymentByID and GetPaymentsByManufacturer.
+//
+// The join is LEFT because most payments are not XRPL payments, so every
+// xp.* column is NULL on those rows. Several XRPLPayment fields
+// (PaymentID, XRPAmount, ExchangeRate, DestinationAddress, Status,
+// CreatedAt, UpdatedAt) are declared as plain, non-nullable types because
+// that is what every other caller of XRPLPayment expects - so they cannot
+// be Scan targets directly when the row might be all-NULL. This scans into
+// local nullable temporaries instead and only copies them onto a
+// model.XRPLPayment once xp.id confirms the row actually matched; the
+// caller must still write out the *model.Payment fields (result.ID etc.)
+// into dest itself, since the payment side of the row is never NULL.
+func scanXRPLLeftJoin(row scannable, dest ...interface{}) (*model.XRPLPayment, bool, error) {
+	var xrplID sql.NullInt64
+	var paymentID sql.NullInt64
+	var xrpAmount, exchangeRate sql.NullFloat64
+	var destinationAddress, status sql.NullString
+	var createdAt, updatedAt sql.NullTime
+	var xrpl model.XRPLPayment
+
+	scanArgs := append(dest,
+		&xrplID, &paymentID, &xrpAmount, &exchangeRate,
+		&destinationAddress, &xrpl.DestinationTag, &xrpl.SourceAddress,
+		&xrpl.TxHash, &xrpl.LedgerIndex, &xrpl.FeeXRP, &status,
+		&xrpl.QRCode, &xrpl.ExpiresAt, &xrpl.ConfirmedAt, &createdAt, &updatedAt,
+	)
+
+	if err := row.Scan(scanArgs...); err != nil {
+		return nil, false, err
+	}
+
+	if !xrplID.Valid {
+		return nil, false, nil
+	}
+
+	xrpl.ID = xrplID
+	xrpl.PaymentID = paymentID
+	xrpl.XRPAmount = xrpAmount.Float64
+	xrpl.ExchangeRate = exchangeRate.Float64
+	xrpl.DestinationAddress = destinationAddress.String
+	xrpl.Status = status.String
+	xrpl.CreatedAt = createdAt.Time
+	xrpl.UpdatedAt = updatedAt.Time
+
+	return &xrpl, true, nil
 }
 
 // GetPaymentByDestinationTag retrieves a pending payment by destination tag.
@@ -243,23 +289,18 @@ func (r *PaymentRepository) GetPaymentsByManufacturer(ctx context.Context, manuf
 	var payments []*model.PaymentWithXRPL
 	for rows.Next() {
 		var p model.PaymentWithXRPL
-		var xrpl model.XRPLPayment
 
-		err := rows.Scan(
+		xrpl, hasXRPL, err := scanXRPLLeftJoin(rows,
 			&p.ID, &p.ManufacturerID, &p.ReportID, &p.PaymentMethod,
 			&p.AmountUSD, &p.Status, &p.TransactionID, &p.ConfirmationNumber,
 			&p.PaymentDate, &p.ProcessedAt, &p.Metadata, &p.CreatedAt, &p.UpdatedAt,
-			&xrpl.ID, &xrpl.PaymentID, &xrpl.XRPAmount, &xrpl.ExchangeRate,
-			&xrpl.DestinationAddress, &xrpl.DestinationTag, &xrpl.SourceAddress,
-			&xrpl.TxHash, &xrpl.LedgerIndex, &xrpl.FeeXRP, &xrpl.Status,
-			&xrpl.QRCode, &xrpl.ExpiresAt, &xrpl.ConfirmedAt, &xrpl.CreatedAt, &xrpl.UpdatedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan payment: %w", err)
 		}
 
-		if xrpl.ID.Valid {
-			p.XRPLPayment = &xrpl
+		if hasXRPL {
+			p.XRPLPayment = xrpl
 		}
 
 		payments = append(payments, &p)
@@ -409,21 +450,23 @@ func (r *PaymentRepository) GetLatestExchangeRate(ctx context.Context, source st
 	return &rate, nil
 }
 
-// SaveAggregatedExchangeRate saves the aggregated exchange rate with source details.
+// SaveAggregatedExchangeRate saves the aggregated exchange rate.
+//
+// The `sources` parameter (the per-exchange rates that fed the aggregate) is
+// accepted but not persisted: the exchange_rates table (see
+// migrations/000002_add_xrpl_tables.up.sql) has no column for it. An earlier
+// version of this function marshaled it to JSON and then dropped the result
+// on the floor without writing it anywhere - silent data loss dressed up as
+// a real write. Flagging that gap here rather than pretending it's stored;
+// storing it for real needs a migration adding e.g. a `sources JSONB` column.
 func (r *PaymentRepository) SaveAggregatedExchangeRate(ctx context.Context, rate float64, sources []map[string]interface{}) error {
-	// Convert sources to JSON
-	sourcesJSON, err := json.Marshal(sources)
-	if err != nil {
-		return fmt.Errorf("failed to marshal sources: %w", err)
-	}
-
 	query := `
 		INSERT INTO exchange_rates (
 			source, xrp_usd_rate, timestamp, created_at
 		) VALUES ($1, $2, $3, $4)
 	`
 
-	_, err = r.db.Exec(ctx, query,
+	_, err := r.db.Exec(ctx, query,
 		model.ExchangeSourceAggregated,
 		rate,
 		time.Now(),

@@ -22,22 +22,22 @@ import (
 
 // Config holds all application configuration.
 type Config struct {
-	Server              ServerConfig              `mapstructure:"server"`
-	APIGateway          ServiceConfig             `mapstructure:"api_gateway"`
-	PaymentService      ServiceConfig             `mapstructure:"payment_service"`
-	TaxService          ServiceConfig             `mapstructure:"tax_service"`
-	ReportingService    ServiceConfig             `mapstructure:"reporting_service"`
-	NotificationService ServiceConfig             `mapstructure:"notification_service"`
-	AuthService         ServiceConfig             `mapstructure:"auth_service"`
-	Database            DatabaseConfig            `mapstructure:"database"`
-	Redis               RedisConfig               `mapstructure:"redis"`
-	RabbitMQ            RabbitMQConfig            `mapstructure:"rabbitmq"`
-	S3                  S3Config                  `mapstructure:"s3"`
-	JWT                 JWTConfig                 `mapstructure:"jwt"`
-	Logger              LoggerConfig              `mapstructure:"logger"`
-	CORS                CORSConfig                `mapstructure:"cors"`
-	RateLimit           RateLimitConfig           `mapstructure:"rate_limit"`
-	XRPL                XRPLConfig                `mapstructure:"xrpl"`
+	Server              ServerConfig    `mapstructure:"server"`
+	APIGateway          ServiceConfig   `mapstructure:"api_gateway"`
+	PaymentService      ServiceConfig   `mapstructure:"payment_service"`
+	TaxService          ServiceConfig   `mapstructure:"tax_service"`
+	ReportingService    ServiceConfig   `mapstructure:"reporting_service"`
+	NotificationService ServiceConfig   `mapstructure:"notification_service"`
+	AuthService         ServiceConfig   `mapstructure:"auth_service"`
+	Database            DatabaseConfig  `mapstructure:"database"`
+	Redis               RedisConfig     `mapstructure:"redis"`
+	RabbitMQ            RabbitMQConfig  `mapstructure:"rabbitmq"`
+	S3                  S3Config        `mapstructure:"s3"`
+	JWT                 JWTConfig       `mapstructure:"jwt"`
+	Logger              LoggerConfig    `mapstructure:"logger"`
+	CORS                CORSConfig      `mapstructure:"cors"`
+	RateLimit           RateLimitConfig `mapstructure:"rate_limit"`
+	XRPL                XRPLConfig      `mapstructure:"xrpl"`
 }
 
 // ServerConfig holds server-related configuration.

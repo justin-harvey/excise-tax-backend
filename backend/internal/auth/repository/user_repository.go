@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"time"
 
-	"excise-tax-portal/backend/internal/auth/model"
-	"excise-tax-portal/backend/pkg/database"
-	"excise-tax-portal/backend/pkg/utils"
+	"github.com/excise-tax-portal/backend/internal/auth/model"
+	"github.com/excise-tax-portal/backend/pkg/database"
+	"github.com/excise-tax-portal/backend/pkg/utils"
 
 	"github.com/jackc/pgx/v5"
 )

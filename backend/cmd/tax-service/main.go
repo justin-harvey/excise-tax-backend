@@ -11,11 +11,18 @@ import (
 
 	"github.com/excise-tax-portal/backend/pkg/config"
 	"github.com/excise-tax-portal/backend/pkg/logger"
+	"go.uber.org/zap"
 )
 
 func main() {
-	// Initialize logger
-	log := logger.NewLogger()
+	// Initialize logger. This service is still a scaffold (see the TODOs
+	// below), so there is no loaded config yet to source these from -
+	// matching the sensible defaults DefaultJWTConfig uses elsewhere.
+	log, err := logger.NewLogger(logger.Config{Environment: "development", Level: "info"})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to initialize logger: %v\n", err)
+		os.Exit(1)
+	}
 	defer log.Sync()
 
 	log.Info("Tax Service starting...")
@@ -23,7 +30,7 @@ func main() {
 	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatal("Failed to load configuration", "error", err)
+		log.Fatal("Failed to load configuration", zap.Error(err))
 	}
 
 	// TODO: Initialize database connection
@@ -42,9 +49,9 @@ func main() {
 
 	// Start server in goroutine
 	go func() {
-		log.Info("Tax Service listening", "port", cfg.TaxService.Port)
+		log.Info("Tax Service listening", zap.Int("port", cfg.TaxService.Port))
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatal("Failed to start server", "error", err)
+			log.Fatal("Failed to start server", zap.Error(err))
 		}
 	}()
 
@@ -60,7 +67,7 @@ func main() {
 	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Fatal("Server forced to shutdown", "error", err)
+		log.Fatal("Server forced to shutdown", zap.Error(err))
 	}
 
 	log.Info("Tax Service stopped")

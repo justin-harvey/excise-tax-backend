@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"excise-tax-portal/backend/internal/auth/service"
+	"github.com/excise-tax-portal/backend/internal/auth/service"
 
 	"github.com/gin-gonic/gin"
 )
@@ -56,8 +56,8 @@ func (h *OAuthHandler) OAuthAuthorize(c *gin.Context) {
 		300, // 5 minutes
 		"/",
 		"",
-		true,  // Secure
-		true,  // HttpOnly
+		true, // Secure
+		true, // HttpOnly
 	)
 
 	// Store state for validation
@@ -67,15 +67,15 @@ func (h *OAuthHandler) OAuthAuthorize(c *gin.Context) {
 		300, // 5 minutes
 		"/",
 		"",
-		true,  // Secure
-		true,  // HttpOnly
+		true, // Secure
+		true, // HttpOnly
 	)
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data": gin.H{
 			"authorization_url": authURL.URL,
-			"state":            authURL.State,
+			"state":             authURL.State,
 		},
 		"meta": gin.H{
 			"timestamp": time.Now().UTC(),
@@ -196,9 +196,9 @@ func (h *OAuthHandler) OAuthCallback(c *gin.Context) {
 		"success": true,
 		"data": gin.H{
 			"oauth_access_token": tokenResp.AccessToken,
-			"token_type":        tokenResp.TokenType,
-			"expires_in":        tokenResp.ExpiresIn,
-			"user_info":         userInfo,
+			"token_type":         tokenResp.TokenType,
+			"expires_in":         tokenResp.ExpiresIn,
+			"user_info":          userInfo,
 		},
 		"meta": gin.H{
 			"timestamp": time.Now().UTC(),

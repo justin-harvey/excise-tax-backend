@@ -7,16 +7,16 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/yourusername/excise-tax-portal/backend/internal/tax/model"
-	"github.com/yourusername/excise-tax-portal/backend/internal/tax/repository"
-	"github.com/yourusername/excise-tax-portal/backend/pkg/errors"
-	"github.com/yourusername/excise-tax-portal/backend/pkg/logger"
+	"github.com/excise-tax-portal/backend/internal/tax/model"
+	"github.com/excise-tax-portal/backend/internal/tax/repository"
+	"github.com/excise-tax-portal/backend/pkg/errors"
+	"github.com/excise-tax-portal/backend/pkg/logger"
 	"go.uber.org/zap"
 )
 
 // TaxService defines the interface for tax business logic.
 type TaxService interface {
-	CreateReport(ctx context.Context, req *model.CreateReportRequest) (*model.TaxReport, error)
+	CreateReport(ctx context.Context, req *model.CreateReportRequest, userID int64, role string) (*model.TaxReport, error)
 	GetReport(ctx context.Context, id int64, userID int64, role string) (*model.TaxReport, error)
 	GetReports(ctx context.Context, filter *model.ReportFilter, userID int64, role string) ([]*model.TaxReport, int64, error)
 	UpdateReport(ctx context.Context, id int64, req *model.UpdateReportRequest, userID int64, role string) (*model.TaxReport, error)
@@ -41,11 +41,22 @@ func NewTaxService(repo repository.TaxRepository, log *logger.Logger) TaxService
 }
 
 // CreateReport creates a new tax report.
-func (s *taxService) CreateReport(ctx context.Context, req *model.CreateReportRequest) (*model.TaxReport, error) {
+func (s *taxService) CreateReport(ctx context.Context, req *model.CreateReportRequest, userID int64, role string) (*model.TaxReport, error) {
 	// Validate request
 	if err := s.validateCreateRequest(ctx, req); err != nil {
 		return nil, err
 	}
+
+	// KNOWN GAP: unlike GetReport/UpdateReport/SubmitReport, this does not
+	// verify that a manufacturer-role caller owns req.ManufacturerID before
+	// creating a report against it. canAccessReport() (below) has the same
+	// gap for reads - there is no user-to-manufacturer association anywhere
+	// in this codebase to check against yet, so any check here would just be
+	// a check that always passes, which is worse than an honest TODO. userID
+	// and role are threaded through now so every enforcement point lines up
+	// once that association exists; nothing here enforces on them yet.
+	_ = userID
+	_ = role
 
 	// Check for overlapping reports
 	hasOverlap, err := s.repo.CheckOverlappingReports(ctx, req.ManufacturerID, req.ReportPeriodStart, req.ReportPeriodEnd, nil)
@@ -235,11 +246,11 @@ func (s *taxService) SubmitReport(ctx context.Context, id int64, userID int64, r
 
 	if !validationResult.IsValid {
 		return &model.SubmitReportResponse{
-			ReportID:           report.ID,
-			Status:             report.Status,
+			ReportID:            report.ID,
+			Status:              report.Status,
 			TaxAmountCalculated: report.TaxAmountCalculated,
-			SubmissionDate:     report.SubmissionDate,
-			ValidationResult:   *validationResult,
+			SubmissionDate:      report.SubmissionDate,
+			ValidationResult:    *validationResult,
 		}, nil
 	}
 
@@ -252,11 +263,11 @@ func (s *taxService) SubmitReport(ctx context.Context, id int64, userID int64, r
 	s.logger.InfoContext(ctx, "Tax report submitted", zap.Int64("report_id", id))
 
 	return &model.SubmitReportResponse{
-		ReportID:           report.ID,
-		Status:             model.ReportStatusPending,
+		ReportID:            report.ID,
+		Status:              model.ReportStatusPending,
 		TaxAmountCalculated: report.TaxAmountCalculated,
-		SubmissionDate:     time.Now(),
-		ValidationResult:   *validationResult,
+		SubmissionDate:      time.Now(),
+		ValidationResult:    *validationResult,
 	}, nil
 }
 

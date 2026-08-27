@@ -21,10 +21,10 @@ type CORSConfig struct {
 // DefaultCORSConfig returns a CORS configuration with sensible defaults
 func DefaultCORSConfig() CORSConfig {
 	return CORSConfig{
-		AllowedOrigins: []string{"http://localhost:3000"},
-		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders: []string{"Content-Type", "Authorization"},
-		ExposedHeaders: []string{"X-Request-ID"},
+		AllowedOrigins:   []string{"http://localhost:3000"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Content-Type", "Authorization"},
+		ExposedHeaders:   []string{"X-Request-ID"},
 		AllowCredentials: true,
 		MaxAge:           3600, // 1 hour
 	}

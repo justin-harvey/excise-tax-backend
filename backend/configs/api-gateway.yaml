@@ -36,6 +36,12 @@ redis:
   password: ""
   db: 0
 
+# JWT secret for locally validating access tokens (middleware.Auth).
+# Set via the JWT_SECRET_KEY environment variable - do not commit a real
+# value here, same convention as every other secret in this repo.
+jwt:
+  secret_key: ""
+
 logging:
   level: info
   environment: development

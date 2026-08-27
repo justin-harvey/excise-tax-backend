@@ -24,34 +24,37 @@ type Payment struct {
 
 // XRPLPayment represents an XRPL-specific payment record.
 type XRPLPayment struct {
-	ID                 int64          `json:"id" db:"id"`
-	PaymentID          int64          `json:"payment_id" db:"payment_id"`
-	XRPAmount          float64        `json:"xrp_amount" db:"xrp_amount"`
-	ExchangeRate       float64        `json:"exchange_rate" db:"exchange_rate"`
-	DestinationAddress string         `json:"destination_address" db:"destination_address"`
-	DestinationTag     sql.NullInt32  `json:"destination_tag,omitempty" db:"destination_tag"`
-	SourceAddress      sql.NullString `json:"source_address,omitempty" db:"source_address"`
-	TxHash             sql.NullString `json:"tx_hash,omitempty" db:"tx_hash"`
-	LedgerIndex        sql.NullInt64  `json:"ledger_index,omitempty" db:"ledger_index"`
+	// ID and PaymentID are nullable: GetPaymentByID and GetPaymentsByManufacturer
+	// read this struct back from a LEFT JOIN against payments, which is NULL
+	// on every row that isn't an XRPL payment.
+	ID                 sql.NullInt64   `json:"id" db:"id"`
+	PaymentID          sql.NullInt64   `json:"payment_id" db:"payment_id"`
+	XRPAmount          float64         `json:"xrp_amount" db:"xrp_amount"`
+	ExchangeRate       float64         `json:"exchange_rate" db:"exchange_rate"`
+	DestinationAddress string          `json:"destination_address" db:"destination_address"`
+	DestinationTag     sql.NullInt32   `json:"destination_tag,omitempty" db:"destination_tag"`
+	SourceAddress      sql.NullString  `json:"source_address,omitempty" db:"source_address"`
+	TxHash             sql.NullString  `json:"tx_hash,omitempty" db:"tx_hash"`
+	LedgerIndex        sql.NullInt64   `json:"ledger_index,omitempty" db:"ledger_index"`
 	FeeXRP             sql.NullFloat64 `json:"fee_xrp,omitempty" db:"fee_xrp"`
-	Status             string         `json:"status" db:"status"`
-	QRCode             sql.NullString `json:"qr_code,omitempty" db:"qr_code"`
-	ExpiresAt          sql.NullTime   `json:"expires_at,omitempty" db:"expires_at"`
-	ConfirmedAt        sql.NullTime   `json:"confirmed_at,omitempty" db:"confirmed_at"`
-	CreatedAt          time.Time      `json:"created_at" db:"created_at"`
-	UpdatedAt          time.Time      `json:"updated_at" db:"updated_at"`
+	Status             string          `json:"status" db:"status"`
+	QRCode             sql.NullString  `json:"qr_code,omitempty" db:"qr_code"`
+	ExpiresAt          sql.NullTime    `json:"expires_at,omitempty" db:"expires_at"`
+	ConfirmedAt        sql.NullTime    `json:"confirmed_at,omitempty" db:"confirmed_at"`
+	CreatedAt          time.Time       `json:"created_at" db:"created_at"`
+	UpdatedAt          time.Time       `json:"updated_at" db:"updated_at"`
 }
 
 // ExchangeRate represents an exchange rate record.
 type ExchangeRate struct {
-	ID         int64          `json:"id" db:"id"`
-	Source     string         `json:"source" db:"source"`
-	XRPUSDRate float64        `json:"xrp_usd_rate" db:"xrp_usd_rate"`
+	ID         int64           `json:"id" db:"id"`
+	Source     string          `json:"source" db:"source"`
+	XRPUSDRate float64         `json:"xrp_usd_rate" db:"xrp_usd_rate"`
 	Bid        sql.NullFloat64 `json:"bid,omitempty" db:"bid"`
 	Ask        sql.NullFloat64 `json:"ask,omitempty" db:"ask"`
 	Volume24h  sql.NullFloat64 `json:"volume_24h,omitempty" db:"volume_24h"`
-	Timestamp  time.Time      `json:"timestamp" db:"timestamp"`
-	CreatedAt  time.Time      `json:"created_at" db:"created_at"`
+	Timestamp  time.Time       `json:"timestamp" db:"timestamp"`
+	CreatedAt  time.Time       `json:"created_at" db:"created_at"`
 }
 
 // XRPLTransactionLog represents a transaction log entry.

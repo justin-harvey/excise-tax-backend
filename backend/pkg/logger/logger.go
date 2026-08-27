@@ -212,9 +212,17 @@ func (l *Logger) FatalContext(ctx context.Context, msg string, fields ...zap.Fie
 
 // With creates a child logger with the given fields.
 func (l *Logger) With(fields ...zap.Field) *Logger {
+	// SugaredLogger.With takes ...interface{}; zap.Field values are detected
+	// and used as-is (see the zap docs), but Go's variadics do not implicitly
+	// convert a []zap.Field to []interface{}, so each element is boxed here.
+	sugarArgs := make([]interface{}, len(fields))
+	for i, f := range fields {
+		sugarArgs[i] = f
+	}
+
 	return &Logger{
 		logger: l.logger.With(fields...),
-		sugar:  l.sugar.With(fields...),
+		sugar:  l.sugar.With(sugarArgs...),
 	}
 }
 

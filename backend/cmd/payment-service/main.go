@@ -9,13 +9,13 @@ import (
 	"syscall"
 	"time"
 
-	"excise-tax-portal/backend/internal/payment/handler"
-	"excise-tax-portal/backend/internal/payment/repository"
-	"excise-tax-portal/backend/internal/payment/service"
-	"excise-tax-portal/backend/internal/payment/xrpl"
-	"excise-tax-portal/backend/pkg/cache"
-	"excise-tax-portal/backend/pkg/database"
-	"excise-tax-portal/backend/pkg/logger"
+	"github.com/excise-tax-portal/backend/internal/payment/handler"
+	"github.com/excise-tax-portal/backend/internal/payment/repository"
+	"github.com/excise-tax-portal/backend/internal/payment/service"
+	"github.com/excise-tax-portal/backend/internal/payment/xrpl"
+	"github.com/excise-tax-portal/backend/pkg/cache"
+	"github.com/excise-tax-portal/backend/pkg/database"
+	"github.com/excise-tax-portal/backend/pkg/logger"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -42,33 +42,33 @@ func main() {
 	defer cancel()
 
 	// Initialize database
-	db, err := initDatabase(ctx, log)
+	db, err := initDatabase(ctx, log.GetZapLogger())
 	if err != nil {
 		log.Fatal("failed to initialize database", zap.Error(err))
 	}
 	defer db.Close()
 
 	// Initialize Redis
-	redisClient, err := initRedis(ctx, log)
+	redisClient, err := initRedis(ctx, log.GetZapLogger())
 	if err != nil {
 		log.Fatal("failed to initialize Redis", zap.Error(err))
 	}
 	defer redisClient.Close()
 
 	// Initialize XRPL client
-	xrplClient, err := initXRPLClient(ctx, log)
+	xrplClient, err := initXRPLClient(ctx, log.GetZapLogger())
 	if err != nil {
 		log.Fatal("failed to initialize XRPL client", zap.Error(err))
 	}
 	defer xrplClient.Close()
 
 	// Initialize price oracle
-	oracle := initPriceOracle(ctx, log)
+	oracle := initPriceOracle(ctx, log.GetZapLogger())
 	oracle.Start(ctx)
 	defer oracle.Stop()
 
 	// Initialize payment monitor
-	monitor := xrpl.NewMonitorService(xrplClient, log)
+	monitor := xrpl.NewMonitorService(xrplClient, log.GetZapLogger())
 	if err := monitor.Start(ctx); err != nil {
 		log.Fatal("failed to start payment monitor", zap.Error(err))
 	}
@@ -76,11 +76,11 @@ func main() {
 
 	// Initialize services
 	paymentRepo := repository.NewPaymentRepository(db)
-	processor := xrpl.NewPaymentProcessor(xrplClient, oracle, monitor, log)
-	paymentService := service.NewPaymentService(paymentRepo, redisClient, xrplClient, oracle, monitor, processor, log)
+	processor := xrpl.NewPaymentProcessor(xrplClient, oracle, monitor, log.GetZapLogger())
+	paymentService := service.NewPaymentService(paymentRepo, redisClient, xrplClient, oracle, monitor, processor, log.GetZapLogger())
 
 	// Initialize HTTP server
-	srv := initHTTPServer(paymentService, log)
+	srv := initHTTPServer(paymentService, log.GetZapLogger())
 
 	// Start server
 	go func() {
@@ -228,8 +228,8 @@ func initHTTPServer(paymentService *service.PaymentService, log *zap.Logger) *ht
 	// Health check endpoint
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
-			"status": "healthy",
-			"service": "payment-service",
+			"status":    "healthy",
+			"service":   "payment-service",
 			"timestamp": time.Now(),
 		})
 	})

@@ -34,13 +34,13 @@ type PaymentCallback func(ctx context.Context, result *PaymentResult) error
 
 // PaymentResult represents the result of payment monitoring.
 type PaymentResult struct {
-	PaymentID      string
-	Status         PaymentStatus
-	TxHash         string
-	LedgerIndex    int64
-	ActualAmount   int64 // in drops
-	ConfirmedAt    time.Time
-	Error          error
+	PaymentID    string
+	Status       PaymentStatus
+	TxHash       string
+	LedgerIndex  int64
+	ActualAmount int64 // in drops
+	ConfirmedAt  time.Time
+	Error        error
 }
 
 // PaymentStatus represents payment status.

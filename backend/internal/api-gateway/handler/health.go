@@ -22,10 +22,10 @@ const (
 
 // HealthResponse represents the health check response
 type HealthResponse struct {
-	Status       HealthStatus              `json:"status"`
-	Services     map[string]HealthStatus   `json:"services"`
-	Dependencies map[string]HealthStatus   `json:"dependencies"`
-	Timestamp    time.Time                 `json:"timestamp"`
+	Status       HealthStatus            `json:"status"`
+	Services     map[string]HealthStatus `json:"services"`
+	Dependencies map[string]HealthStatus `json:"dependencies"`
+	Timestamp    time.Time               `json:"timestamp"`
 }
 
 // ServiceHealthChecker is an interface for checking service health
