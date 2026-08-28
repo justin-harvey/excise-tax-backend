@@ -624,7 +624,7 @@ For more troubleshooting, see:
 
 ## 🎉 Congratulations!
 
-You now have a **production-ready, enterprise-grade microservices backend** for government excise tax collection with blockchain payment integration!
+You now have a **running local instance** of the excise-tax microservices backend. It compiles and starts; the service layer is only partly tested and two known defects are recorded in BUILD_COMPLETION_REPORT.md. Do not treat this as production-ready.
 
 **Built with:**
 - Golang 1.21+

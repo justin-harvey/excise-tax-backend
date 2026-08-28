@@ -1,3 +1,40 @@
+# Backend Build Report
+
+**Correction (2026-08-28):** this document was written when the build was
+finished and described it as "✅ COMPLETE", "100%" and "production-ready". The
+code was checked against those claims and they did not hold. What is true:
+
+| Claim as written | Verified state |
+|---|---|
+| ✅ COMPLETED (100%) | Compiles clean (`go build ./...`, `go vet ./...`). |
+| 6 Microservices fully implemented | Implemented, not verified. |
+| Production-ready | No. See below. |
+
+At the time of the correction the service layer — `internal/auth/service`,
+`internal/payment/service`, `internal/payment/xrpl`, `internal/tax/service` —
+had **no tests at all**. The eight existing test files covered `pkg/*`
+utilities only. Tests have since been added for the tax service, and writing
+them surfaced two defects that the "production-ready" label had been sitting
+on top of:
+
+- **`CalculateTaxAmount` silently under-reports.** When no tax rate is on file
+  for a product it logs a warning and drops the product from both the total
+  and the breakdown. The caller gets a figure that looks authoritative and is
+  too low, with nothing in the response indicating anything was omitted.
+- **`canAccessReport` returns true on every path.** Any authenticated user can
+  read any manufacturer's tax report by id. Fixing it requires a
+  user-to-manufacturer association the schema does not currently carry.
+
+Both are pinned by tests named `*_KnownDefect` in
+`backend/internal/tax/service/tax_service_test.go`, which explain what correct
+behaviour would be. Neither is fixed.
+
+This is a working prototype of a government excise-tax backend with XRPL
+settlement. It is not deployed, not audited, and not carrying anyone's money.
+The original report follows unedited below for history.
+
+---
+
 # Excise Tax Portal - Backend Infrastructure Build Report
 
 **Build Date:** December 29, 2025

@@ -23,7 +23,7 @@ The Excise Tax Payment Platform is a complete, full-stack system for government 
   * Administrative review and approval workflows
   * Payment history and tax calculators
 
-* **Backend Infrastructure (this repository)** – A production-ready, cloud-native microservices system integrating XRP Ledger (XRPL) settlement to materially reduce payment processing costs while providing 3–5 second settlement times versus traditional monthly or multi-week batch processes
+* **Backend Infrastructure (this repository)** – A prototype cloud-native microservices system integrating XRP Ledger (XRPL) settlement to materially reduce payment processing costs while providing 3–5 second settlement times versus traditional monthly or multi-week batch processes
 
 ---
 
