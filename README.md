@@ -16,7 +16,7 @@ The Excise Tax Payment Platform is a complete, full-stack system for government 
 
 * **Frontend Portal** – Production web application for manufacturers, distributors, and government administrators
 
-  * Live at: [https://github.com/G00DTECH/Excise-Tax-Payment-Platform](https://github.com/G00DTECH/Excise-Tax-Payment-Platform)
+  * Live at: [https://github.com/justin-harvey/Excise-Tax-Payment-Platform](https://github.com/justin-harvey/Excise-Tax-Payment-Platform)
   * Company registration and secure authentication
   * Payment processing (ACH, Credit Card, Wire Transfer)
   * Manufacturing report submissions (13 LCC report types)
@@ -81,7 +81,7 @@ This repository contains the backend infrastructure that powers the Excise Tax P
 
 ### Frontend (Separate Repository)
 
-* Repository: [https://github.com/G00DTECH/Excise-Tax-Payment-Platform](https://github.com/G00DTECH/Excise-Tax-Payment-Platform)
+* Repository: [https://github.com/justin-harvey/Excise-Tax-Payment-Platform](https://github.com/justin-harvey/Excise-Tax-Payment-Platform)
 * Technology: HTML5, JavaScript, responsive web design
 * Features include taxpayer portals, administrative review tools, payment interfaces, report submission, calculators, and status tracking
 
